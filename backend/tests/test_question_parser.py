@@ -1,0 +1,15 @@
+from app.rag.question_parser import parse_drawing_question
+
+
+def test_parses_column_cutting_length_question() -> None:
+    parsed = parse_drawing_question("What is the cutting length of steel for column no C12?")
+    assert parsed.member_type == "column"
+    assert parsed.member_id == "C12"
+    assert parsed.calculation_intent == "cutting_length"
+    assert not parsed.needs_clarification
+
+
+def test_marks_ambiguous_question_for_clarification() -> None:
+    parsed = parse_drawing_question("Is this drawing approved?")
+    assert parsed.needs_clarification
+    assert parsed.member_id is None
