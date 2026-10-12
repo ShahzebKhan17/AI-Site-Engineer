@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 
+from app.routers.calculations import router as calculations_router
 from app.routers.health import router as health_router
 
 app = FastAPI(
@@ -8,3 +9,4 @@ app = FastAPI(
     description="Deterministic calculation service for reviewed structural drawing inputs.",
 )
 app.include_router(health_router)
+app.include_router(calculations_router)
