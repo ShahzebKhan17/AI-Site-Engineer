@@ -1,0 +1,12 @@
+@import "tailwindcss";
+
+:root { --ink: #15221c; --paper: #f6f3eb; --lime: #d8ed45; --muted: #6c746d; }
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: Arial, Helvetica, sans-serif; }
+.shell { min-height: 100vh; padding: 24px clamp(24px, 7vw, 112px) 28px; display: flex; flex-direction: column; }
+nav, footer { display: flex; align-items: center; justify-content: space-between; }
+.brand { font-size: 1.1rem; letter-spacing: -.06em; font-weight: 900; }.brand span { color: #73870b; }.status, .eyebrow { font-family: monospace; letter-spacing: .12em; font-size: .69rem; font-weight: 700; }.status { border: 1px solid #a8ada5; padding: 7px 10px; border-radius: 99px; }
+.hero { padding: clamp(88px, 15vh, 164px) 0 clamp(85px, 13vh, 135px); max-width: 900px; }.eyebrow { color: #64711b; }.hero h1 { font-size: clamp(4rem, 10vw, 8.8rem); line-height: .83; letter-spacing: -.09em; margin: 22px 0 30px; font-weight: 800; }.hero h1 em { font-family: Georgia, serif; font-weight: 400; }.intro { color: var(--muted); line-height: 1.55; max-width: 540px; font-size: 1.08rem; }.actions { margin-top: 35px; display: flex; gap: 24px; align-items: center; }.actions button { cursor: pointer; border: 0; background: var(--ink); color: #fff; padding: 15px 20px; font-weight: 700; font-size: .94rem; }.actions a { color: var(--ink); font-size: .9rem; text-underline-offset: 5px; }
+.workflow { border-top: 1px solid #bfc3bb; padding-top: 25px; }.milestones { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 25px; }.milestones article { min-height: 210px; background: #e9e6de; padding: 21px; }.milestones article:nth-child(2) { background: var(--lime); }.milestones span { font-family: monospace; font-size: .76rem; }.milestones h2 { margin: 56px 0 9px; font-size: 1.4rem; letter-spacing: -.04em; }.milestones p { margin: 0; line-height: 1.45; color: #536058; font-size: .9rem; } footer { margin-top: auto; padding-top: 50px; color: #687068; font-size: .75rem; }
+@media (max-width: 650px) { .shell { padding: 20px; }.milestones { grid-template-columns: 1fr; }.hero h1 { font-size: clamp(3.6rem, 18vw, 5.5rem); }.hero { padding-top: 100px; }.actions { flex-wrap: wrap; } }
