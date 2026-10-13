@@ -5,7 +5,8 @@
 [![Next.js](https://img.shields.io/badge/Next.js-16.4-black.svg)](https://nextjs.org)
 [![Supabase](https://img.shields.io/badge/Supabase-pgvector-3ECF8E.svg)](https://supabase.com)
 [![IS Codes](https://img.shields.io/badge/Standard-IS%20456%20%7C%20SP%2034-00E5FF.svg)](docs/architecture.md)
-[![Tests](https://img.shields.io/badge/Tests-23%20Passed-brightgreen.svg)](backend/tests)
+[![Tests](https://img.shields.io/badge/Tests-26%20Passed-brightgreen.svg)](backend/tests)
+[![CI Pipeline](https://github.com/ShahzebKhan17/AI-Site-Engineer/actions/workflows/ci.yml/badge.svg)](https://github.com/ShahzebKhan17/AI-Site-Engineer/actions)
 
 > **Verifiable, Zero-Arithmetic-Hallucination AI for Civil Site Engineers & Construction Contractors.**  
 > Built with Hybrid RAG (`pgvector` + `tsvector`), FastAPI, Next.js, and a deterministic civil engineering Bar Bending Schedule (BBS) engine.
