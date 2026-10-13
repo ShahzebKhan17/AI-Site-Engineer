@@ -368,17 +368,6 @@ export default function Home() {
               <p className="brand-subtitle">CONSTRUCTION INTELLIGENCE</p>
             </div>
           </div>
-
-          <div className="system-status-pills">
-            <div className="status-pill">
-              <span className="status-dot" />
-              <span>IS 456 &amp; SP 34 VERIFIED</span>
-            </div>
-            <div className="status-pill">
-              <span className="status-dot" />
-              <span>HYBRID RAG · PGVECTOR</span>
-            </div>
-          </div>
         </header>
 
         {/* Central Intelligence Hero */}
@@ -417,46 +406,6 @@ export default function Home() {
             >
               {isLoading ? "Running Engine..." : "Calculate Cutting Length"}
               <span aria-hidden="true">→</span>
-            </button>
-          </div>
-
-          {/* Quick Query Presets */}
-          <div className="query-presets">
-            <button
-              className="preset-chip"
-              onClick={() => {
-                setQuery("What is the cutting length of the column C12 reinforcement bars?");
-                handleExecuteQuery("What is the cutting length of the column C12 reinforcement bars?");
-              }}
-            >
-              [C12 Main Bars BBS]
-            </button>
-            <button
-              className="preset-chip"
-              onClick={() => {
-                setQuery("Calculate development length and lap length for C12 in M25 concrete");
-                handleExecuteQuery("Calculate development length and lap length for C12 in M25 concrete");
-              }}
-            >
-              [IS 456 Lap Length in M25]
-            </button>
-            <button
-              className="preset-chip"
-              onClick={() => {
-                setQuery("What is the footing embedment 90-degree bend allowance for 16mm rebar?");
-                handleExecuteQuery("What is the footing embedment 90-degree bend allowance for 16mm rebar?");
-              }}
-            >
-              [SP 34 Footing 90° Bend]
-            </button>
-            <button
-              className="preset-chip"
-              onClick={() => {
-                setQuery("Check permissible column lap zone and stagger spacing");
-                handleExecuteQuery("Check permissible column lap zone and stagger spacing");
-              }}
-            >
-              [Column Lap Zone Check]
             </button>
           </div>
         </section>
