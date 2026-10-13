@@ -23,7 +23,12 @@ def chunk_text(text: str, chunk_size: int = 900, overlap: int = 120) -> list[str
         chunks.append(normalized[start:end])
         if end == len(normalized):
             break
-        start = max(end - overlap, start + 1)
+        overlap_target = max(end - overlap, start + 1)
+        prev_boundary = normalized.rfind(" ", start, overlap_target)
+        if prev_boundary > start:
+            start = prev_boundary + 1
+        else:
+            start = overlap_target
     return chunks
 
 
