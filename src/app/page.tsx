@@ -272,8 +272,6 @@ export default function Home() {
       <div className="blueprint-overlay" aria-hidden="true">
         <span className="technical-bracket top-left">[SYS: AI SITE ENGINEER v2.4]</span>
         <span className="technical-bracket top-right">[AEC DOMAIN INTELLIGENCE]</span>
-        <span className="technical-bracket bottom-left">[DETERMINISTIC VERIFICATION]</span>
-        <span className="technical-bracket bottom-right">[IS 456 / SP 34 COMPLIANT]</span>
 
         <svg
           style={{ position: "absolute", top: 0, right: 0, width: "100%", height: "100%", opacity: 0.22 }}
@@ -559,40 +557,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Bottom Technical Pillars (Direct 4-Pillar Layout from User's Reference Screenshot) */}
-        <footer className="pillars-grid">
-          <div className="pillar-card">
-            <div className="pillar-stat">100%</div>
-            <div className="pillar-title">Deterministic Python Math</div>
-            <p className="pillar-desc">
-              Zero LLM arithmetic. Calculations are strictly executed by a dedicated Python engine per IS 456.
-            </p>
-          </div>
-
-          <div className="pillar-card">
-            <div className="pillar-stat">Sheet &amp; Rev</div>
-            <div className="pillar-title">Traceable Drawing Citations</div>
-            <p className="pillar-desc">
-              Every dimension, embedment depth, and bar diameter is attributed to exact drawing revision pages.
-            </p>
-          </div>
-
-          <div className="pillar-card">
-            <div className="pillar-stat">BOQ ↔ BBS</div>
-            <div className="pillar-title">Automated Variance Auditing</div>
-            <p className="pillar-desc">
-              Full Bar Bending Schedules with standard 90° bend deductions and footing hook anchorages.
-            </p>
-          </div>
-
-          <div className="pillar-card">
-            <div className="pillar-stat">Zero Guesswork</div>
-            <div className="pillar-title">IS &amp; SP Code Compliant</div>
-            <p className="pillar-desc">
-              Built-in code provisions for development lengths, design bond stresses, and column lap zones.
-            </p>
-          </div>
-        </footer>
       </div>
     </>
   );
