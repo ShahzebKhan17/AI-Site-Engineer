@@ -73,3 +73,21 @@ class SupabaseRAGClient:
             response = client.post(endpoint, headers=self._headers(), json=payload)
             response.raise_for_status()
             return response.json()
+
+    def hybrid_search(
+        self,
+        query_text: str,
+        filter_entity_code: str | None = None,
+        filter_project_id: str | None = None,
+        match_count: int = 6,
+        candidate_cache: list[dict[str, Any]] | None = None,
+    ):
+        from app.rag.retrieval import run_hybrid_search
+        return run_hybrid_search(
+            client=self,
+            query_text=query_text,
+            filter_entity_code=filter_entity_code,
+            filter_project_id=filter_project_id,
+            match_count=match_count,
+            candidate_chunks_cache=candidate_cache,
+        )
