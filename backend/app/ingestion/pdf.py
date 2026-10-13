@@ -32,16 +32,34 @@ def chunk_text(text: str, chunk_size: int = 900, overlap: int = 120) -> list[str
     return chunks
 
 
+def detect_entity_in_text(text: str) -> tuple[str | None, str | None]:
+    """Identify structural member identifier from text snippet."""
+    import re
+    column_match = re.search(r"\b(?:column\s*(?:no\.?\s*)?)?(C\d+)\b", text, re.IGNORECASE)
+    if column_match:
+        return column_match.group(1).upper(), "column"
+    beam_match = re.search(r"\b(?:beam\s*(?:no\.?\s*)?)?(B\d+)\b", text, re.IGNORECASE)
+    if beam_match:
+        return beam_match.group(1).upper(), "beam"
+    footing_match = re.search(r"\b(?:footing\s*(?:no\.?\s*)?)?(F\d+)\b", text, re.IGNORECASE)
+    if footing_match:
+        return footing_match.group(1).upper(), "footing"
+    return None, None
+
+
 def extract_pdf(file_bytes: bytes, file_name: str) -> ExtractionResult:
     reader = PdfReader(BytesIO(file_bytes))
     chunks: list[ExtractedChunk] = []
     for page_index, page in enumerate(reader.pages):
         page_number = page_index + 1
         for text in chunk_text(page.extract_text() or ""):
+            entity_code, entity_type = detect_entity_in_text(text)
             chunks.append(ExtractedChunk(
                 content=text,
                 page_number=page_number,
                 chunk_index=len(chunks),
                 source_reference=f"drawing:{file_name}#page={page_number}",
+                entity_code=entity_code,
+                entity_type=entity_type,
             ))
     return ExtractionResult(file_name=file_name, page_count=len(reader.pages), chunks=chunks)
