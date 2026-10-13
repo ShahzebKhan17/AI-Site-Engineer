@@ -12,6 +12,8 @@ class ColumnBarRequest(BaseModel):
     concrete_grade: str = Field(min_length=1)
     steel_grade: str = Field(min_length=1)
     source_references: list[str] = Field(min_length=1)
+    use_is_code_rules: bool = Field(default=False)
+    deduct_bends: bool = Field(default=False)
 
     @field_validator("member_id")
     @classmethod
@@ -32,3 +34,4 @@ class ColumnBarResult(BaseModel):
     assumptions: list[str]
     source_references: list[str]
     engine_version: str
+    is_code_provisions: dict[str, str | float] | None = None

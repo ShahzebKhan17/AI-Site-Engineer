@@ -136,9 +136,9 @@ def calculate_development_length(
     if bar_diameter_mm <= 0:
         raise ValueError("Bar diameter must be greater than 0 mm.")
 
-    c_grade = normalize_concrete_grade(str(concrete_grade))
-    s_grade = normalize_steel_grade(str(steel_grade))
-    st_type = StressType(str(stress_type).lower())
+    c_grade = normalize_concrete_grade(concrete_grade)
+    s_grade = normalize_steel_grade(steel_grade)
+    st_type = normalize_stress_type(stress_type)
 
     f_y = STEEL_YIELD_STRENGTH[s_grade]
     sigma_s = round(0.87 * f_y, 2)
