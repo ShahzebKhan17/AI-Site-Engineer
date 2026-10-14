@@ -28,7 +28,10 @@ async def extract_drawing(file: UploadFile = File(...)) -> ExtractionResult:
     if len(contents) > MAX_PDF_SIZE_BYTES:
         raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="PDF must be 25 MB or smaller.")
     try:
-        return extract_pdf(contents, file.filename or "drawing.pdf")
+        extraction = extract_pdf(contents, file.filename or "drawing.pdf")
+        from app.rag.store import add_chunks
+        add_chunks(extraction.chunks, drawing_id=file.filename or "uploaded-drawing")
+        return extraction
     except Exception as error:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="The PDF could not be read.") from error
 

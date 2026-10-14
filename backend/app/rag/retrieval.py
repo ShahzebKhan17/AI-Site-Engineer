@@ -83,20 +83,23 @@ def run_hybrid_search(
             )
 
     # Offline simulated hybrid ranking
-    candidates = candidate_chunks_cache or []
+    from app.rag.store import get_all_chunks
+    candidates = candidate_chunks_cache if candidate_chunks_cache else get_all_chunks()
     scored: list[RetrievedChunk] = []
     norm_query = query_text.lower()
     entity_target = (filter_entity_code or "").upper()
+    query_tokens = [w.strip(".,;:?!()[]{}'\"") for w in norm_query.split() if len(w.strip(".,;:?!()[]{}'\"")) > 2]
 
     for idx, c in enumerate(candidates):
         content = c.get("content", "")
         c_entity = (c.get("entity_code") or "").upper()
-        # Simulated keyword score
-        kw_score = 0.8 if any(word in content.lower() for word in norm_query.split()) else 0.0
+        # Simulated keyword score based on token overlap
+        matches = [tok for tok in query_tokens if tok in content.lower()]
+        kw_score = min(round(len(matches) / max(len(query_tokens), 1) * 1.2, 2), 1.0) if query_tokens else 0.5
         # Exact entity boost (+0.35)
         entity_boost = 0.35 if (entity_target and (c_entity == entity_target or entity_target in content.upper())) else 0.0
         # Simulated semantic score
-        sem_score = 0.6 if kw_score > 0 else 0.2
+        sem_score = 0.7 if kw_score > 0.2 else (0.4 if kw_score > 0 else 0.15)
         comb = round(0.45 * kw_score + 0.55 * sem_score + entity_boost, 3)
 
         scored.append(

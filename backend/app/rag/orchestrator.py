@@ -19,8 +19,12 @@ class AskQuestionRequest(BaseModel):
     candidate_chunks_cache: list[dict[str, Any]] | None = None
 
 
+from app.rag.answer_generator import synthesize_engineering_answer
+
+
 class OrchestratedCalculationResponse(BaseModel):
     question: str
+    answer: str = ""
     parsed_question: DrawingQuestion
     evidence_chunks: list[RetrievedChunk]
     extraction: ExtractionOutput
@@ -52,15 +56,24 @@ def orchestrate_drawing_question(
 
     if not retrieval_res.chunks:
         warnings.append("No matching drawing evidence was retrieved.")
+        empty_extraction = ExtractionOutput(
+            member_id=target_entity or "UNKNOWN",
+            confidence=0.0,
+            notes=["No drawing chunks available."],
+        )
+        answer = synthesize_engineering_answer(
+            question=request.question,
+            chunks=[],
+            extraction=empty_extraction,
+            calculation=None,
+            warnings=warnings,
+        )
         return OrchestratedCalculationResponse(
             question=request.question,
+            answer=answer,
             parsed_question=parsed,
             evidence_chunks=[],
-            extraction=ExtractionOutput(
-                member_id=target_entity or "UNKNOWN",
-                confidence=0.0,
-                notes=["No drawing chunks available."],
-            ),
+            extraction=empty_extraction,
             calculation=None,
             status="needs_review",
             review_warnings=warnings,
@@ -80,15 +93,29 @@ def orchestrate_drawing_question(
 
     # Step 3: Calculation Engine Execution
     calc_result: ColumnBarResult | None = None
-    if extraction_output.column_request:
+    is_calc_query = (
+        parsed.calculation_intent is not None
+        or any(w in request.question.lower() for w in ["cutting length", "bbs", "calculate", "cutting", "bar length"])
+    )
+    if is_calc_query and extraction_output.column_request:
         calc_result = calculate_longitudinal_bar(extraction_output.column_request)
 
     status = "completed" if calc_result is not None else "needs_review"
     if extraction_output.confidence < 0.75:
         warnings.append("Low extraction confidence from drawing snippet; manual verification advised.")
 
+    # Step 4: Engineering Answer Synthesis
+    answer = synthesize_engineering_answer(
+        question=request.question,
+        chunks=retrieval_res.chunks,
+        extraction=extraction_output,
+        calculation=calc_result,
+        warnings=warnings,
+    )
+
     return OrchestratedCalculationResponse(
         question=request.question,
+        answer=answer,
         parsed_question=parsed,
         evidence_chunks=retrieval_res.chunks,
         extraction=extraction_output,
