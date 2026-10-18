@@ -28,6 +28,9 @@ class BeamBarRequest(BaseModel):
         return value.strip().upper()
 
 
+from app.engineering.models import BBSCalculationResult, BBSItem, CalculationBreakdown
+
+
 class BeamBarResult(BaseModel):
     member_id: str
     bar_position: str
@@ -38,6 +41,36 @@ class BeamBarResult(BaseModel):
     source_references: list[str]
     engine_version: str
     is_code_provisions: dict[str, str | float] | None = None
+
+    def to_bbs_result(self, bar_diameter_mm: float = 20.0, num_bars: int = 3) -> BBSCalculationResult:
+        unit_wt = round((bar_diameter_mm ** 2) / 162.0, 3)
+        total_len = round(self.cutting_length_m * num_bars, 3)
+        total_wt = round(unit_wt * total_len, 2)
+        item = BBSItem(
+            bar_mark=f"Beam {self.bar_position.replace('_', ' ').title()}",
+            bar_type="main",
+            bar_diameter_mm=bar_diameter_mm,
+            num_bars=num_bars,
+            cutting_length_mm=self.cutting_length_mm,
+            cutting_length_m=self.cutting_length_m,
+            total_length_m=total_len,
+            unit_weight_kg_m=unit_wt,
+            total_weight_kg=total_wt,
+            shape_description="Beam longitudinal tension bar anchored into column core with 90° hooks",
+            breakdown=self.breakdown,
+        )
+        return BBSCalculationResult(
+            member_id=self.member_id,
+            member_type="BEAM",
+            total_cutting_length_m=self.cutting_length_m,
+            total_weight_kg=total_wt,
+            items=[item],
+            assumptions=self.assumptions,
+            source_references=self.source_references,
+            is_code_provisions=self.is_code_provisions,
+            engine_version=self.engine_version,
+        )
+
 
 
 def calculate_beam_bar_length(request: BeamBarRequest) -> BeamBarResult:

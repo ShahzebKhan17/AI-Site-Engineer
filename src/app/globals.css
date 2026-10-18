@@ -707,3 +707,110 @@ body {
   align-items: center;
   gap: 12px;
 }
+
+/* Clickable Calculation Quantity Cells */
+.clickable-qty {
+  cursor: pointer;
+  text-decoration: underline dashed rgba(0, 229, 255, 0.45);
+  text-underline-offset: 3px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  display: inline-block;
+}
+
+.clickable-qty:hover {
+  color: var(--cyan-primary) !important;
+  background: rgba(0, 229, 255, 0.15);
+  text-decoration-color: var(--cyan-primary);
+  box-shadow: 0 0 8px rgba(0, 229, 255, 0.3);
+}
+
+/* Formula & Derivation Inspector Drawer */
+.inspector-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(3, 8, 19, 0.82);
+  backdrop-filter: blur(8px);
+  z-index: 150;
+  display: flex;
+  justify-content: flex-end;
+  animation: fadeIn 0.2s ease;
+}
+
+.inspector-drawer {
+  width: 100%;
+  max-width: 540px;
+  height: 100vh;
+  background: #061527;
+  border-left: 1px solid var(--cyan-border-active);
+  box-shadow: -10px 0 40px rgba(0, 0, 0, 0.8), 0 0 30px rgba(0, 229, 255, 0.15);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  animation: slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.inspector-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid rgba(0, 229, 255, 0.2);
+  background: rgba(8, 24, 48, 0.95);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.inspector-close-btn {
+  background: rgba(0, 229, 255, 0.1);
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  color: var(--cyan-primary);
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.inspector-close-btn:hover {
+  background: rgba(0, 229, 255, 0.25);
+  border-color: var(--cyan-primary);
+}
+
+.inspector-body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.formula-card {
+  background: rgba(4, 16, 32, 0.9);
+  border: 1px solid rgba(0, 229, 255, 0.25);
+  border-radius: 10px;
+  padding: 16px;
+  box-shadow: inset 0 0 15px rgba(0, 229, 255, 0.05);
+}
+
+.formula-code {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: #38bdf8;
+  background: rgba(0, 229, 255, 0.08);
+  padding: 10px 14px;
+  border-radius: 6px;
+  border-left: 3px solid var(--cyan-primary);
+  margin: 10px 0;
+}
+

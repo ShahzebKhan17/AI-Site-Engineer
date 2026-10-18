@@ -3,8 +3,17 @@
 from typing import Any
 from pydantic import BaseModel, Field
 
+from app.engineering.calculators.beam import calculate_beam_bar_length
 from app.engineering.calculators.column import calculate_longitudinal_bar
-from app.engineering.models import ColumnBarResult
+from app.engineering.calculators.footing import calculate_footing_mesh
+from app.engineering.calculators.pier import calculate_pier_bbs
+from app.engineering.calculators.pile import calculate_pile_bbs
+from app.engineering.calculators.pile_cap import calculate_pile_cap_bbs
+from app.engineering.calculators.retaining_wall import calculate_retaining_wall_bbs
+from app.engineering.calculators.slab import calculate_slab_bbs
+from app.engineering.calculators.staircase import calculate_staircase_bbs
+from app.engineering.models import BBSCalculationResult
+from app.rag.answer_generator import synthesize_engineering_answer
 from app.rag.extractor import ExtractionOutput, extract_parameters_from_evidence
 from app.rag.question_parser import DrawingQuestion, parse_drawing_question
 from app.rag.retrieval import RetrievalResponse, RetrievedChunk, run_hybrid_search
@@ -19,16 +28,13 @@ class AskQuestionRequest(BaseModel):
     candidate_chunks_cache: list[dict[str, Any]] | None = None
 
 
-from app.rag.answer_generator import synthesize_engineering_answer
-
-
 class OrchestratedCalculationResponse(BaseModel):
     question: str
     answer: str = ""
     parsed_question: DrawingQuestion
     evidence_chunks: list[RetrievedChunk]
     extraction: ExtractionOutput
-    calculation: ColumnBarResult | None = None
+    calculation: Any | None = None
     status: str
     review_warnings: list[str] = Field(default_factory=list)
 
@@ -84,6 +90,7 @@ def orchestrate_drawing_question(
         question=request.question,
         chunks=retrieval_res.chunks,
         member_id=target_entity,
+        member_type=parsed.member_type,
     )
 
     if extraction_output.missing_fields:
@@ -92,13 +99,36 @@ def orchestrate_drawing_question(
         )
 
     # Step 3: Calculation Engine Execution
-    calc_result: ColumnBarResult | None = None
+    calc_result: BBSCalculationResult | None = None
     is_calc_query = (
         parsed.calculation_intent is not None
-        or any(w in request.question.lower() for w in ["cutting length", "bbs", "calculate", "cutting", "bar length"])
+        or any(w in request.question.lower() for w in [
+            "cutting length", "bbs", "calculate", "cutting", "bar length", "schedule", "rebar", "mesh", "tonnage", "weight"
+        ])
     )
-    if is_calc_query and extraction_output.column_request:
-        calc_result = calculate_longitudinal_bar(extraction_output.column_request)
+    if is_calc_query:
+        mtype = extraction_output.member_type
+        try:
+            if mtype == "slab" and extraction_output.slab_request:
+                calc_result = calculate_slab_bbs(extraction_output.slab_request)
+            elif mtype == "pile" and extraction_output.pile_request:
+                calc_result = calculate_pile_bbs(extraction_output.pile_request)
+            elif mtype == "pile_cap" and extraction_output.pile_cap_request:
+                calc_result = calculate_pile_cap_bbs(extraction_output.pile_cap_request)
+            elif mtype == "staircase" and extraction_output.staircase_request:
+                calc_result = calculate_staircase_bbs(extraction_output.staircase_request)
+            elif mtype == "pier" and extraction_output.pier_request:
+                calc_result = calculate_pier_bbs(extraction_output.pier_request)
+            elif mtype == "retaining_wall" and extraction_output.retaining_wall_request:
+                calc_result = calculate_retaining_wall_bbs(extraction_output.retaining_wall_request)
+            elif mtype == "beam" and extraction_output.beam_request:
+                calc_result = calculate_beam_bar_length(extraction_output.beam_request).to_bbs_result()
+            elif mtype == "footing" and extraction_output.footing_request:
+                calc_result = calculate_footing_mesh(extraction_output.footing_request).to_bbs_result()
+            elif extraction_output.column_request:
+                calc_result = calculate_longitudinal_bar(extraction_output.column_request).to_bbs_result()
+        except Exception as err:
+            warnings.append(f"Calculation engine warning: {str(err)}")
 
     status = "completed" if calc_result is not None else "needs_review"
     if extraction_output.confidence < 0.75:

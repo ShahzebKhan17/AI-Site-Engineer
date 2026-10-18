@@ -27,6 +27,9 @@ class FootingMeshRequest(BaseModel):
         return value.strip().upper()
 
 
+from app.engineering.models import BBSCalculationResult, BBSItem, CalculationBreakdown
+
+
 class FootingMeshResult(BaseModel):
     member_id: str
     cutting_length_long_mm: float
@@ -38,6 +41,50 @@ class FootingMeshResult(BaseModel):
     assumptions: list[str]
     source_references: list[str]
     engine_version: str
+
+    def to_bbs_result(self, bar_diameter_mm: float = 12.0) -> BBSCalculationResult:
+        unit_wt = round((bar_diameter_mm ** 2) / 162.0, 3)
+        cut_long_m = round(self.cutting_length_long_mm / 1000.0, 3)
+        cut_short_m = round(self.cutting_length_short_mm / 1000.0, 3)
+        tot_long_m = round(cut_long_m * self.num_bars_long, 3)
+        tot_short_m = round(cut_short_m * self.num_bars_short, 3)
+        item_long = BBSItem(
+            bar_mark="Footing Mesh (Long Direction)",
+            bar_type="main",
+            bar_diameter_mm=bar_diameter_mm,
+            num_bars=self.num_bars_long,
+            cutting_length_mm=self.cutting_length_long_mm,
+            cutting_length_m=cut_long_m,
+            total_length_m=tot_long_m,
+            unit_weight_kg_m=unit_wt,
+            total_weight_kg=round(unit_wt * tot_long_m, 2),
+            shape_description="U-shaped bottom mesh bar with vertical 90° end hook legs",
+            breakdown=self.breakdown_long,
+        )
+        item_short = BBSItem(
+            bar_mark="Footing Mesh (Short Direction)",
+            bar_type="main",
+            bar_diameter_mm=bar_diameter_mm,
+            num_bars=self.num_bars_short,
+            cutting_length_mm=self.cutting_length_short_mm,
+            cutting_length_m=cut_short_m,
+            total_length_m=tot_short_m,
+            unit_weight_kg_m=unit_wt,
+            total_weight_kg=round(unit_wt * tot_short_m, 2),
+            shape_description="U-shaped bottom mesh bar with vertical 90° end hook legs",
+            breakdown=self.breakdown_long,
+        )
+        return BBSCalculationResult(
+            member_id=self.member_id,
+            member_type="FOOTING",
+            total_cutting_length_m=cut_long_m,
+            total_weight_kg=self.total_mesh_weight_kg,
+            items=[item_long, item_short],
+            assumptions=self.assumptions,
+            source_references=self.source_references,
+            engine_version=self.engine_version,
+        )
+
 
 
 def calculate_footing_mesh(request: FootingMeshRequest) -> FootingMeshResult:
