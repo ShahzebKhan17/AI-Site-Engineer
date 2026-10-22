@@ -77,7 +77,7 @@ def calculate_retaining_wall(request: RetainingWallScheduleRequest) -> BBSCalcul
 
 
 class ProjectBBSRequest(BaseModel):
-    project_id: str = "G+8 Commercial Complex"
+    project_id: str = "Structural Project"
     candidate_chunks_cache: list[dict[str, Any]] | None = None
 
 
@@ -85,12 +85,12 @@ class ProjectBBSRequest(BaseModel):
 def get_project_bbs(request: ProjectBBSRequest | None = None) -> ProjectBBSResponse:
     """Generate consolidated multi-member Bar Bending Schedule and procurement steel breakdown."""
     chunks = request.candidate_chunks_cache if request else None
-    proj_id = request.project_id if request else "G+8 Commercial Complex"
+    proj_id = request.project_id if request else "Structural Project"
     return generate_consolidated_project_bbs(chunks=chunks, project_id=proj_id)
 
 
 class OptimizationRequest(BaseModel):
-    project_id: str = "G+8 Commercial Complex"
+    project_id: str = "Structural Project"
     items: list[dict[str, Any]] | None = None
     candidate_chunks_cache: list[dict[str, Any]] | None = None
 
@@ -98,7 +98,7 @@ class OptimizationRequest(BaseModel):
 @router.post("/optimize-cutting", response_model=ProcurementOrderRequisition)
 def optimize_rebar_cutting_patterns(request: OptimizationRequest | None = None) -> ProcurementOrderRequisition:
     """Run 1D Cutting Stock optimization to pack required bar pieces into standard 12.0m commercial stock bars."""
-    proj_id = request.project_id if request else "G+8 Commercial Complex"
+    proj_id = request.project_id if request else "Structural Project"
     target_items = request.items if request and request.items else None
 
     if not target_items:
@@ -120,12 +120,12 @@ def optimize_rebar_cutting_patterns(request: OptimizationRequest | None = None) 
 
 
 class QASignoffRequest(BaseModel):
-    project_id: str = "G+8 Commercial Complex"
-    member_id: str | None = "C12"
+    project_id: str = "Structural Project"
+    member_id: str | None = None
     member_type: str = "COLUMN"
-    engineer_name: str = "Er. A. K. Sharma"
-    engineer_license: str = "SE/R-4091/2026"
-    organization: str = "Apex Structural QA/QC Consultants"
+    engineer_name: str = "Chartered Structural Engineer"
+    engineer_license: str = "SE/LIC-VERIFIED"
+    organization: str = "Structural Engineering QA/QC Department"
     calculation_data: dict[str, Any] = Field(default_factory=dict)
 
 

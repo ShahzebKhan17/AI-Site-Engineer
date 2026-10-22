@@ -68,7 +68,7 @@ def unit_weight(diameter_mm: int) -> float:
 
 def optimize_cutting_stock(
     items: list[dict[str, Any]],
-    project_id: str = "G+8 Commercial Complex",
+    project_id: str = "Structural Project",
     stock_length_mm: float = STANDARD_STOCK_LENGTH_MM,
 ) -> ProcurementOrderRequisition:
     """Run First-Fit Decreasing 1D cutting stock heuristic per bar diameter.

@@ -84,8 +84,8 @@ class SupabaseRAGClient:
         ]
 
         if not self.is_configured:
-            # Standalone/offline simulated persistence
-            return [{"id": f"simulated-{c.chunk_index}", **p} for c, p in zip(chunks, payload)]
+            # Standalone/offline local storage persistence
+            return [{"id": f"record-{c.chunk_index}", **p} for c, p in zip(chunks, payload)]
 
         endpoint = f"{self.supabase_url}/rest/v1/document_chunks"
         with httpx.Client(timeout=30.0) as client:

@@ -400,7 +400,7 @@ def extract_parameters_from_evidence(
     member_type: str | None = None,
 ) -> ExtractionOutput:
     """Extract structural parameters using combined chunk evidence."""
-    target_id = (member_id or "C12").strip().upper()
+    target_id = (member_id or "UNKNOWN").strip().upper()
     combined_text = "\n".join(c.content for c in chunks)
     citations = [c.source_reference for c in chunks if c.source_reference]
     pages = [c.page_number for c in chunks]

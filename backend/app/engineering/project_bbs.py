@@ -26,7 +26,7 @@ from app.rag.store import get_all_chunks
 
 def generate_consolidated_project_bbs(
     chunks: list[dict[str, Any]] | None = None,
-    project_id: str = "G+8 Commercial Complex",
+    project_id: str = "Structural Project",
 ) -> ProjectBBSResponse:
     """Scan all project drawing chunks, calculate BBS for each structural member, and aggregate steel tonnage by diameter."""
     all_chunks_raw = chunks if chunks and len(chunks) > 0 else get_all_chunks()

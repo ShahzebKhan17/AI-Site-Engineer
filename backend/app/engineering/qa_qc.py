@@ -125,11 +125,11 @@ def verify_civil_compliance(
 
 def create_qa_audit_certificate(
     calculation_data: dict[str, Any],
-    engineer_name: str = "Er. A. K. Sharma",
-    engineer_license: str = "SE/R-4091/2026",
-    organization: str = "Apex Structural QA/QC Consultants",
-    project_id: str = "G+8 Commercial Complex",
-    member_id: str | None = "C12",
+    engineer_name: str = "Chartered Structural Engineer",
+    engineer_license: str = "SE/LIC-VERIFIED",
+    organization: str = "Structural Engineering QA/QC Department",
+    project_id: str = "Structural Project",
+    member_id: str | None = None,
     member_type: str = "COLUMN",
 ) -> QAAuditCertificate:
     """Generate certified QA/QC audit document with cryptographic signature stamp."""

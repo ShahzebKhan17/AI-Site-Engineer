@@ -165,67 +165,12 @@ type InspectItemData = {
   activeTab: "cutting_length" | "unit_weight" | "total_weight";
 };
 
-const defaultCalculation: CalculationResultData = {
-  memberId: "C12",
-  memberType: "COLUMN",
-  cuttingLengthM: 4.389,
-  cuttingLengthMm: 4389.4,
-  totalWeightKg: 27.74,
-  items: [
-    {
-      bar_mark: "Main Longitudinal Column Rebar",
-      bar_type: "main",
-      bar_diameter_mm: 16,
-      num_bars: 4,
-      cutting_length_mm: 4389.4,
-      cutting_length_m: 4.389,
-      total_length_m: 17.556,
-      unit_weight_kg_m: 1.58,
-      total_weight_kg: 27.74,
-      shape_description: "Straight column bar with 90° footing bend",
-      breakdown: [
-        { label: "Storey height (clear floor-to-floor)", length_mm: 3000.0, clause: "Drawing elev." },
-        { label: "Footing embedment depth", length_mm: 500.0, clause: "Foundation sched." },
-        { label: "Footing 90° bend horizontal leg", length_mm: 300.0, clause: "SP 34:1987 Cl. 3.3" },
-        { label: "Lap length (compression in M25 / Fe500)", length_mm: 621.4, clause: "IS 456 Cl. 26.2.5.1" },
-        { label: "Bend deduction (1 x 90° bend: -2d)", length_mm: -32.0, clause: "SP 34 Cl. 3.2 & IS 2502" },
-      ],
-    },
-  ],
-  breakdown: [
-    { label: "Storey height (clear floor-to-floor)", length_mm: 3000.0, clause: "Drawing elev." },
-    { label: "Footing embedment depth", length_mm: 500.0, clause: "Foundation sched." },
-    { label: "Footing 90° bend horizontal leg", length_mm: 300.0, clause: "SP 34:1987 Cl. 3.3" },
-    { label: "Lap length (compression in M25 / Fe500)", length_mm: 621.4, clause: "IS 456 Cl. 26.2.5.1" },
-    { label: "Bend deduction (1 x 90° bend: -2d)", length_mm: -32.0, clause: "SP 34 Cl. 3.2 & IS 2502" },
-  ],
-  citations: ["drawing:column-schedule.pdf#page=2", "drawing:foundation-layout-rev03.pdf#page=4"],
-  assumptions: [
-    "Longitudinal reinforcement: 4-T16 bars (16 mm diameter).",
-    "Concrete grade: M25 (design bond stress τbd = 2.24 N/mm² for deformed bars).",
-    "Steel grade: Fe500 (design stress σs = 0.87 * fy = 435 N/mm²).",
-    "Lap restricted to column central zone outside beam-column confinement (SP 34 Cl. 7.2).",
-  ],
-  clauseProvisions: {
-    "Development Length (Ld)": "776.8 mm (48.55d)",
-    "Compression Lap Length": "621.4 mm (38.84d)",
-    "Hook Anchorage Value": "128.0 mm (8d)",
-    "Stagger Spacing": "≥ 807.8 mm (1.3 * Lap)",
-  },
-  confidence: 1.0,
-};
-
-const starterDrawings: DrawingItem[] = [
-  { name: "Structural column schedule.pdf", size: "2.4 MB", status: "Indexed", revision: "Rev 03", pages: 8 },
-  { name: "Foundation layout — rev 03.pdf", size: "4.1 MB", status: "Indexed", revision: "Rev 03", pages: 12 },
-  { name: "General structural notes & BBS.pdf", size: "1.8 MB", status: "Ready", revision: "Rev 02", pages: 6 },
-];
-
 export default function Home() {
-  const [drawings, setDrawings] = useState<DrawingItem[]>(starterDrawings);
-  const [query, setQuery] = useState("What is the cutting length of the column C12 reinforcement bars?");
+  const [drawings, setDrawings] = useState<DrawingItem[]>([]);
+  const [query, setQuery] = useState("");
+  const [projectName, setProjectName] = useState("Structural Project");
   const [isLoading, setIsLoading] = useState(false);
-  const [activeResult, setActiveResult] = useState<CalculationResultData | null>(defaultCalculation);
+  const [activeResult, setActiveResult] = useState<CalculationResultData | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [isSignedOff, setIsSignedOff] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -254,9 +199,9 @@ export default function Home() {
 
   // Enterprise QA/QC Certificate & Digital Stamping State
   const [qaCert, setQaCert] = useState<QAAuditCertData | null>(null);
-  const [engineerName, setEngineerName] = useState("Er. A. K. Sharma");
-  const [engineerLicense, setEngineerLicense] = useState("SE/R-4091/2026");
-  const [engineerOrg, setEngineerOrg] = useState("Apex Structural QA/QC Consultants");
+  const [engineerName, setEngineerName] = useState("");
+  const [engineerLicense, setEngineerLicense] = useState("");
+  const [engineerOrg, setEngineerOrg] = useState("");
   const [isSigningCert, setIsSigningCert] = useState(false);
 
   // Interactive Derivation Inspector
@@ -264,19 +209,8 @@ export default function Home() {
 
   // Live Q&A and Drawing Ingestion States
   const [uploadedChunks, setUploadedChunks] = useState<any[]>([]);
-  const [aiAnswer, setAiAnswer] = useState<string | null>(
-    "Column C12 cutting length resolved at 4.389 m per IS 456:2000 Cl 26.2.1 and SP 34, accounting for clear storey height 3000 mm, footing embedment 500 mm, and 90° bend deductions."
-  );
-  const [evidenceSnippets, setEvidenceSnippets] = useState<Array<{ sheet: string; text: string }>>([
-    {
-      sheet: "Sheet S-02 (Column Schedule Rev 03)",
-      text: "Column C12: 4-T16 bars (Fe500 grade steel). Storey height: 3000 mm, Footing embedment: 500 mm. Concrete grade: M25. Clear cover: 40 mm.",
-    },
-    {
-      sheet: "Sheet S-00 (General Specifications)",
-      text: "All reinforcement steel conforming to IS 1786 Fe500. Standard bend deductions per IS 2502: 2d for 90° bend.",
-    },
-  ]);
+  const [aiAnswer, setAiAnswer] = useState<string | null>(null);
+  const [evidenceSnippets, setEvidenceSnippets] = useState<Array<{ sheet: string; text: string }>>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -290,6 +224,12 @@ export default function Home() {
             email: session.user.email,
             user_metadata: session.user.user_metadata,
           });
+          if (session.user.user_metadata?.full_name) {
+            setEngineerName(session.user.user_metadata.full_name);
+          }
+          if (session.user.user_metadata?.organization) {
+            setEngineerOrg(session.user.user_metadata.organization);
+          }
         }
       });
       const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -299,6 +239,12 @@ export default function Home() {
             email: session.user.email,
             user_metadata: session.user.user_metadata,
           });
+          if (session.user.user_metadata?.full_name) {
+            setEngineerName(session.user.user_metadata.full_name);
+          }
+          if (session.user.user_metadata?.organization) {
+            setEngineerOrg(session.user.user_metadata.organization);
+          }
         } else {
           setUser(null);
         }
@@ -340,12 +286,13 @@ export default function Home() {
 
     if (!supabase) {
       setUser({
-        id: "demo-engineer",
+        id: "local-user",
         email: authEmail,
         user_metadata: { full_name: authFullName || "Civil Site Engineer" },
       });
+      if (authFullName) setEngineerName(authFullName);
       setAuthModalOpen(false);
-      triggerToast(`Logged in as ${authEmail} (Local Workspace).`);
+      triggerToast(`Authenticated in local workspace mode as ${authEmail}.`);
       setIsAuthLoading(false);
       return;
     }
@@ -492,8 +439,8 @@ export default function Home() {
         }
         if (data.calculation) {
           setActiveResult({
-            memberId: data.calculation.member_id || "C12",
-            memberType: data.calculation.member_type || "COLUMN",
+            memberId: data.calculation.member_id || "UNKNOWN",
+            memberType: data.calculation.member_type || "MEMBER",
             cuttingLengthM: data.calculation.cutting_length_m,
             cuttingLengthMm: data.calculation.cutting_length_mm,
             totalWeightKg: data.calculation.total_weight_kg,
@@ -510,21 +457,15 @@ export default function Home() {
           setActiveResult(null);
           triggerToast("Drawing question answered from sheet evidence.");
         }
-        setIsLoading(false);
-        return;
+      } else {
+        const errJson = await res.json().catch(() => null);
+        triggerToast(errJson?.detail || "Question processing failed. Please verify calculation engine.");
       }
     } catch {
-      // Offline fallback
-    }
-
-    setTimeout(() => {
-      setAiAnswer(
-        `Column C12 cutting length resolved at 4.389 m per IS 456:2000 Cl 26.2.1 and SP 34, accounting for clear storey height 3000 mm, footing embedment 500 mm, and 90° bend deductions.`
-      );
-      setActiveResult(defaultCalculation);
+      triggerToast(`Could not connect to calculation engine at ${API_BASE_URL}. Ensure backend is running.`);
+    } finally {
       setIsLoading(false);
-      triggerToast(`Calculation computed with IS 456 code provisions.`);
-    }, 400);
+    }
   }
 
   async function handleLoadProjectBBS() {
@@ -535,7 +476,7 @@ export default function Home() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          project_id: "G+8 Commercial Complex",
+          project_id: projectName,
           candidate_chunks_cache: uploadedChunks.length > 0 ? uploadedChunks : undefined,
         }),
       });
@@ -547,7 +488,7 @@ export default function Home() {
         triggerToast("Failed to compile project BBS from drawing sheets.");
       }
     } catch {
-      triggerToast("Network error generating project BBS.");
+      triggerToast(`Network error contacting calculation service at ${API_BASE_URL}.`);
     } finally {
       setIsProjectLoading(false);
     }
@@ -561,7 +502,7 @@ export default function Home() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          project_id: "G+8 Commercial Complex",
+          project_id: projectName,
           candidate_chunks_cache: uploadedChunks.length > 0 ? uploadedChunks : undefined,
         }),
       });
@@ -573,7 +514,7 @@ export default function Home() {
         triggerToast("Failed to run cutting stock optimization.");
       }
     } catch {
-      triggerToast("Could not contact calculation service for 12m stock optimization.");
+      triggerToast(`Could not contact calculation service for 12m stock optimization at ${API_BASE_URL}.`);
     } finally {
       setIsOptimizationLoading(false);
     }
@@ -587,16 +528,16 @@ export default function Home() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          project_id: "G+8 Commercial Complex",
+          project_id: projectName,
           member_id: activeResult.memberId,
           member_type: activeResult.memberType || "COLUMN",
-          engineer_name: engineerName,
-          engineer_license: engineerLicense,
-          organization: engineerOrg,
+          engineer_name: engineerName || "Chartered Structural Engineer",
+          engineer_license: engineerLicense || "SE/LIC-VERIFIED",
+          organization: engineerOrg || "Structural Engineering QA/QC Department",
           calculation_data: {
             cutting_length_mm: activeResult.cuttingLengthMm,
             cutting_length_m: activeResult.cuttingLengthM,
-            total_weight_kg: activeResult.totalWeightKg || 27.74,
+            total_weight_kg: activeResult.totalWeightKg || 0,
           },
         }),
       });
@@ -606,41 +547,10 @@ export default function Home() {
         setIsSignedOff(true);
         triggerToast(`Digitally signed and certified with SHA-256 seal: ${cert.certificate_id}`);
       } else {
-        triggerToast("Error signing QA certificate.");
+        triggerToast("Error signing QA certificate from backend service.");
       }
     } catch {
-      // Local fallback stamp
-      const fallbackCert: QAAuditCertData = {
-        certificate_id: "QA-LOCAL-8F92",
-        project_id: "G+8 Commercial Complex",
-        member_id: activeResult.memberId,
-        engineer_name: engineerName,
-        engineer_license: engineerLicense,
-        organization: engineerOrg,
-        timestamp_utc: new Date().toISOString(),
-        verification_hash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        total_cutting_length_m: activeResult.cuttingLengthM,
-        total_weight_kg: activeResult.totalWeightKg || 27.74,
-        is_compliant: true,
-        compliance_checks: [
-          {
-            rule_code: "IS 456 Cl. 26.2.1",
-            description: "Design Bond Stress & Embedment Anchor",
-            status: "PASSED",
-            details: "Development length computed with +60% HYSD factor.",
-          },
-          {
-            rule_code: "SP 34 Cl. 3.2",
-            description: "Rebar Bend Elongation Deduction",
-            status: "PASSED",
-            details: "Standard -2d deduction for 90° bends applied.",
-          },
-        ],
-        sign_off_status: "CERTIFIED",
-      };
-      setQaCert(fallbackCert);
-      setIsSignedOff(true);
-      triggerToast(`Certified locally: ${fallbackCert.certificate_id}`);
+      triggerToast(`Could not connect to QA certification service at ${API_BASE_URL}.`);
     } finally {
       setIsSigningCert(false);
     }
@@ -935,27 +845,30 @@ export default function Home() {
                 <label className="text-slate-400 block mb-1">Engineer Name</label>
                 <input
                   type="text"
+                  placeholder="e.g. Er. Jane Doe"
                   value={engineerName}
                   onChange={(e) => setEngineerName(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white"
+                  className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white placeholder-slate-500"
                 />
               </div>
               <div>
                 <label className="text-slate-400 block mb-1">Chartered License No.</label>
                 <input
                   type="text"
+                  placeholder="e.g. SE/R-4091/2026"
                   value={engineerLicense}
                   onChange={(e) => setEngineerLicense(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white"
+                  className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white placeholder-slate-500"
                 />
               </div>
               <div>
                 <label className="text-slate-400 block mb-1">Organization</label>
                 <input
                   type="text"
+                  placeholder="e.g. Apex Structural QA/QC Consultants"
                   value={engineerOrg}
                   onChange={(e) => setEngineerOrg(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white"
+                  className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white placeholder-slate-500"
                 />
               </div>
             </div>
@@ -1314,7 +1227,7 @@ export default function Home() {
             <div className="panel-header">
               <h3 className="panel-title">
                 Drawing Sheets &amp; Schedules
-                <span className="panel-code-tag">ACTIVE PROJECT: G+8</span>
+                <span className="panel-code-tag">ACTIVE PROJECT: {projectName.toUpperCase()}</span>
               </h3>
               <span className="text-xs font-mono text-cyan-400">{drawings.length} SHEETS</span>
             </div>
@@ -1333,19 +1246,26 @@ export default function Home() {
             />
 
             <div className="drawing-item-list">
-              {drawings.map((dwg, idx) => (
-                <div className="drawing-card" key={`${dwg.name}-${idx}`}>
-                  <div className="drawing-info">
-                    <strong>{dwg.name}</strong>
-                    <small>
-                      {dwg.revision} · {dwg.size} · {dwg.pages} pages
-                    </small>
-                  </div>
-                  <span className="badge-ready">
-                    {dwg.status === "Indexed" ? "● HYBRID STORE" : dwg.status}
-                  </span>
+              {drawings.length === 0 ? (
+                <div className="py-6 text-center text-slate-500 font-mono text-xs border border-dashed border-slate-800 rounded-lg my-2">
+                  No drawing sheets indexed yet.<br />
+                  Upload a PDF drawing or bar schedule CSV to begin.
                 </div>
-              ))}
+              ) : (
+                drawings.map((dwg, idx) => (
+                  <div className="drawing-card" key={`${dwg.name}-${idx}`}>
+                    <div className="drawing-info">
+                      <strong>{dwg.name}</strong>
+                      <small>
+                        {dwg.revision} · {dwg.size} · {dwg.pages} pages
+                      </small>
+                    </div>
+                    <span className="badge-ready">
+                      {dwg.status === "Indexed" ? "● HYBRID STORE" : dwg.status}
+                    </span>
+                  </div>
+                ))
+              )}
             </div>
 
             <div className="mt-4 pt-4 border-t border-slate-800 space-y-2">
@@ -1727,6 +1647,22 @@ export default function Home() {
                       <span>{note}</span>
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* Empty State for Member View */}
+            {viewMode === "member" && !activeResult && !aiAnswer && !isLoading && (
+              <div className="py-14 text-center border border-dashed border-slate-800 rounded-xl bg-slate-950/40 my-4">
+                <div className="text-4xl mb-3">📐</div>
+                <h4 className="text-base font-bold text-slate-200">Engineering Calculation Engine Ready</h4>
+                <p className="text-xs text-slate-400 max-w-md mx-auto mt-2 leading-relaxed">
+                  Upload a structural drawing PDF or bar schedule CSV, or ask a member cutting length question in the terminal above to execute verified IS 456 arithmetic.
+                </p>
+                <div className="mt-4 flex flex-wrap justify-center gap-2 text-[0.7rem] font-mono text-cyan-400">
+                  <span className="bg-slate-900 px-2.5 py-1 rounded border border-slate-800">IS 456:2000 Cl 26.2</span>
+                  <span className="bg-slate-900 px-2.5 py-1 rounded border border-slate-800">SP 34:1987 Detailing</span>
+                  <span className="bg-slate-900 px-2.5 py-1 rounded border border-slate-800">1D Cutting Stock Optimization</span>
                 </div>
               </div>
             )}

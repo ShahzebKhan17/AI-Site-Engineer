@@ -108,8 +108,8 @@ def run_hybrid_search(
 
         scored.append(
             RetrievedChunk(
-                chunk_id=c.get("id", f"mock-{idx}"),
-                drawing_id=c.get("drawing_id", "mock-drawing"),
+                chunk_id=c.get("id", f"chunk-{idx}"),
+                drawing_id=c.get("drawing_id", "drawing-source"),
                 content=content,
                 page_number=c.get("page_number", 1),
                 entity_code=c_entity or None,
@@ -117,7 +117,7 @@ def run_hybrid_search(
                 keyword_score=kw_score,
                 semantic_score=sem_score,
                 combined_score=comb,
-                source_reference=c.get("metadata", {}).get("source_reference", f"mock#page={c.get('page_number', 1)}"),
+                source_reference=c.get("metadata", {}).get("source_reference", f"Page {c.get('page_number', 1)}"),
             )
         )
 
@@ -126,5 +126,5 @@ def run_hybrid_search(
         query_text=query_text,
         matched_entity_code=filter_entity_code,
         chunks=scored[:match_count],
-        retrieval_mode="simulated_hybrid",
+        retrieval_mode="in_memory_hybrid",
     )
