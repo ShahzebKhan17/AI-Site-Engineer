@@ -45,7 +45,7 @@ def run_hybrid_search(
     """Execute hybrid search using Supabase RPC or fallback ranking."""
     query_vector = generate_embedding(query_text)
 
-    if client.is_configured:
+    if client.is_configured and not candidate_chunks_cache:
         import httpx
 
         endpoint = f"{client.supabase_url}/rest/v1/rpc/hybrid_search_document_chunks"
@@ -56,31 +56,35 @@ def run_hybrid_search(
             "filter_project_id": filter_project_id,
             "filter_entity_code": filter_entity_code,
         }
-        with httpx.Client(timeout=30.0) as http_client:
-            response = http_client.post(endpoint, headers=client._headers(), json=payload)
-            response.raise_for_status()
-            raw_results = response.json()
-            chunks = [
-                RetrievedChunk(
-                    chunk_id=r.get("chunk_id", ""),
-                    drawing_id=r.get("drawing_id", ""),
-                    content=r.get("content", ""),
-                    page_number=r.get("page_number", 1),
-                    entity_code=r.get("entity_code"),
-                    metadata=r.get("metadata", {}),
-                    keyword_score=round(r.get("keyword_score", 0.0), 3),
-                    semantic_score=round(r.get("semantic_score", 0.0), 3),
-                    combined_score=round(r.get("combined_score", 0.0), 3),
-                    source_reference=r.get("metadata", {}).get("source_reference", f"page={r.get('page_number', 1)}"),
-                )
-                for r in raw_results
-            ]
-            return RetrievalResponse(
-                query_text=query_text,
-                matched_entity_code=filter_entity_code,
-                chunks=chunks,
-                retrieval_mode="supabase_rpc_hybrid",
-            )
+        try:
+            with httpx.Client(timeout=30.0) as http_client:
+                response = http_client.post(endpoint, headers=client._headers(), json=payload)
+                if response.status_code == 200:
+                    raw_results = response.json()
+                    if raw_results:
+                        chunks = [
+                            RetrievedChunk(
+                                chunk_id=r.get("chunk_id", ""),
+                                drawing_id=r.get("drawing_id", ""),
+                                content=r.get("content", ""),
+                                page_number=r.get("page_number", 1),
+                                entity_code=r.get("entity_code"),
+                                metadata=r.get("metadata", {}),
+                                keyword_score=round(r.get("keyword_score", 0.0), 3),
+                                semantic_score=round(r.get("semantic_score", 0.0), 3),
+                                combined_score=round(r.get("combined_score", 0.0), 3),
+                                source_reference=r.get("metadata", {}).get("source_reference", f"page={r.get('page_number', 1)}"),
+                            )
+                            for r in raw_results
+                        ]
+                        return RetrievalResponse(
+                            query_text=query_text,
+                            matched_entity_code=filter_entity_code,
+                            chunks=chunks,
+                            retrieval_mode="supabase_rpc_hybrid",
+                        )
+        except Exception:
+            pass  # Fall back to local store
 
     # Offline simulated hybrid ranking
     from app.rag.store import get_all_chunks

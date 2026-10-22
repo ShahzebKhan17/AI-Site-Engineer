@@ -1,9 +1,18 @@
 """Supabase client for chunk persistence into pgvector document_chunks table."""
 
 import os
+from pathlib import Path
 from typing import Any
 
 import httpx
+
+try:
+    from dotenv import load_dotenv
+    _env_path = Path(__file__).resolve().parents[2] / ".env"
+    if _env_path.exists():
+        load_dotenv(_env_path)
+except ImportError:
+    pass
 
 from app.ingestion.models import ExtractedChunk
 from app.rag.embeddings import generate_embeddings
@@ -15,8 +24,18 @@ class SupabaseRAGClient:
         supabase_url: str | None = None,
         supabase_key: str | None = None,
     ):
-        self.supabase_url = (supabase_url or os.getenv("SUPABASE_URL") or os.getenv("NEXT_PUBLIC_SUPABASE_URL") or "").rstrip("/")
-        self.supabase_key = supabase_key or os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_ANON_KEY") or os.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY") or ""
+        if supabase_url is not None:
+            raw_url = supabase_url.rstrip("/")
+        else:
+            raw_url = (os.getenv("SUPABASE_URL") or os.getenv("NEXT_PUBLIC_SUPABASE_URL") or "").rstrip("/")
+        if raw_url.endswith("/rest/v1"):
+            raw_url = raw_url[:-8]
+        self.supabase_url = raw_url.rstrip("/")
+
+        if supabase_key is not None:
+            self.supabase_key = supabase_key
+        else:
+            self.supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_ANON_KEY") or os.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY") or ""
 
     @property
     def is_configured(self) -> bool:
