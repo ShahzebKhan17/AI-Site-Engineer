@@ -5,11 +5,11 @@
 [![Next.js](https://img.shields.io/badge/Next.js-16.4-black.svg)](https://nextjs.org)
 [![Supabase](https://img.shields.io/badge/Supabase-pgvector-3ECF8E.svg)](https://supabase.com)
 [![IS Codes](https://img.shields.io/badge/Standard-IS%20456%20%7C%20SP%2034-00E5FF.svg)](docs/architecture.md)
-[![Tests](https://img.shields.io/badge/Tests-26%20Passed-brightgreen.svg)](backend/tests)
+[![Tests](https://img.shields.io/badge/Tests-54%20Passed-brightgreen.svg)](backend/tests)
 [![CI Pipeline](https://github.com/ShahzebKhan17/AI-Site-Engineer/actions/workflows/ci.yml/badge.svg)](https://github.com/ShahzebKhan17/AI-Site-Engineer/actions)
 
 > **Verifiable, Zero-Arithmetic-Hallucination AI for Civil Site Engineers & Construction Contractors.**  
-> Built with Hybrid RAG (`pgvector` + `tsvector`), FastAPI, Next.js, and a deterministic civil engineering Bar Bending Schedule (BBS) engine.
+> Built with Hybrid RAG (`pgvector` + `tsvector`), FastAPI, Next.js, and a deterministic civil engineering Bar Bending Schedule (BBS) engine with 1D Cutting Stock Optimization and cryptographic QA/QC audit trails.
 
 ---
 
@@ -21,7 +21,7 @@ General-purpose Large Language Models (LLMs) hallucinate arithmetic, confuse sim
 
 ### The Neuro-Symbolic Solution:
 1. **Probabilistic Layer (RAG & Extractor):**
-   * Digital PDF text extraction with page citations.
+   * Multi-format extraction from digital PDF drawings and CSV/TSV structural bar schedules with page and row citations.
    * **Hybrid Retrieval:** Blends vector similarity ($0.55$), PostgreSQL full-text rank ($0.45$), and exact member identifier boosting ($+0.25$ for tags like `C12`).
    * **Structured Extractor:** Extracts explicit dimensions (`bar_diameter_mm`, `storey_height_mm`, `concrete_grade`, `steel_grade`) without performing any calculations.
 2. **Deterministic Layer (Python Engineering Engine):**
@@ -30,7 +30,13 @@ General-purpose Large Language Models (LLMs) hallucinate arithmetic, confuse sim
      * **IS 456:2000 Clause 26.2.5.1:** Compression/tension column lap lengths and stagger spacing.
      * **SP 34:1987 Clause 3.2 & IS 2502:** Standard elongation bend deductions ($-2d$ for $90^\circ$ bends).
      * **SP 34:1987 Clause 7.2:** Column confinement lap zones ($H/2$ central clear height).
-   * Generates step-by-step Bar Bending Schedules (BBS) and computes total steel tonnage using $\text{Weight} = \frac{d^2}{162}\text{ kg/m}$.
+   * Generates step-by-step Bar Bending Schedules (BBS) across 9 structural member types (Columns, Beams, Footings, Slabs, Staircases, Piles, Pile Caps, Retaining Walls, Piers).
+   * Computes total steel tonnage using $\text{Weight} = \frac{d^2}{162}\text{ kg/m}$.
+3. **Field Optimization & Governance Layer (Phase 4):**
+   * **1D Cutting Stock Optimizer (CSP):** Packs required bar pieces into standard $12{,}000\text{ mm}$ ($12.0\text{ m}$) commercial straight stock rebar to minimize scrap offcuts and project steel waste ($< 5\%$).
+   * **Cryptographic QA/QC Audit Trail:** Stretches beyond simple review with a tamper-evident SHA-256 calculation hash, IS 456 checklist verification, and professional engineer certification stamp.
+   * **Multi-Format Ingestion:** Ingests tabular CSV/TSV structural schedules alongside multi-page CAD PDF sheets.
+   * **Offline Field Cache Resilience:** Automatic offline synchronization for remote job sites with intermittent connectivity.
 
 ---
 
