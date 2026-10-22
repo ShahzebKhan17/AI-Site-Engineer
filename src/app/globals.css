@@ -77,6 +77,8 @@ body {
 
 /* Top Navigation Bar */
 .top-nav {
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -155,9 +157,43 @@ body {
   50% { opacity: 0.5; transform: scale(0.85); }
 }
 
+/* Hero Construction Photo Background Backdrop */
+.hero-background-backdrop {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100vw;
+  height: 720px;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.hero-background-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 82% 25%;
+  opacity: 0.95;
+  filter: contrast(1.15) brightness(1.1);
+}
+
+.hero-background-overlay {
+  position: absolute;
+  inset: 0;
+  background: 
+    linear-gradient(180deg, rgba(3, 8, 19, 0.25) 0%, rgba(3, 8, 19, 0.5) 60%, var(--bg-deep) 98%),
+    linear-gradient(90deg, rgba(3, 8, 19, 0.98) 0%, rgba(3, 8, 19, 0.92) 38%, rgba(3, 8, 19, 0.55) 58%, rgba(3, 8, 19, 0.05) 78%, transparent 100%);
+}
+
 /* Hero Section */
 .hero-section {
   position: relative;
+  z-index: 2;
   text-align: center;
   padding: 48px 20px 40px;
   max-width: 960px;
@@ -591,13 +627,13 @@ body {
 }
 
 .modal-card {
-  background: rgba(6, 20, 42, 0.95);
+  background: rgba(6, 20, 42, 0.97);
   border: 1px solid var(--cyan-primary);
   border-radius: 16px;
   width: 100%;
-  max-width: 620px;
+  max-width: 420px;
   box-shadow: 0 0 50px rgba(0, 229, 255, 0.35);
-  padding: 28px;
+  padding: 32px;
   position: relative;
   max-height: 90vh;
   overflow-y: auto;

@@ -1042,122 +1042,176 @@ export default function Home() {
       {/* PROFESSIONAL AUTH MODAL (Sign In / Register) */}
       {authModalOpen && (
         <div className="modal-backdrop" onClick={() => setAuthModalOpen(false)}>
-          <div className="modal-card max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <span className="text-xs font-mono uppercase text-cyan-400 font-bold tracking-wider">
-                  ENGINEER ACCOUNT &amp; CLOUD REPOSITORY
-                </span>
-                <h3 className="text-lg font-bold text-white mt-1">
-                  {authMode === "signin" ? "Sign In to AI Site Engineer" : "Create Site Engineer Account"}
-                </h3>
-              </div>
-              <button className="text-slate-400 hover:text-white" onClick={() => setAuthModalOpen(false)}>
+          <div className="modal-card" style={{maxWidth: '420px'}} onClick={(e) => e.stopPropagation()}>
+
+            {/* Header */}
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'6px'}}>
+              <h3 style={{fontSize:'1.25rem', fontWeight:700, color:'#fff', margin:0}}>
+                {authMode === "signin" ? "Sign In" : "Create Your Account"}
+              </h3>
+              <button
+                style={{background:'none', border:'none', color:'#94a3b8', cursor:'pointer', fontSize:'1.1rem', lineHeight:1, padding:'4px'}}
+                onClick={() => setAuthModalOpen(false)}
+                aria-label="Close"
+              >
                 ✕
               </button>
             </div>
-
-            <p className="text-xs text-slate-300 mb-4 font-sans leading-relaxed">
-              Persist structural drawing sheets, multi-member BBS calculations, and 12m stock cut lists across site visits.
+            <p style={{fontSize:'0.75rem', color:'#64748b', marginBottom:'24px', marginTop:0}}>
+              {authMode === "signin"
+                ? "Welcome back to AI Site Engineer"
+                : "Get started with your free account"}
             </p>
 
-            <div className="flex border-b border-slate-800 pb-2 mb-4 gap-2">
+            {/* Tab Pills */}
+            <div style={{display:'flex', gap:'8px', marginBottom:'24px'}}>
               <button
                 type="button"
-                className={`text-xs font-mono px-3 py-1.5 rounded transition ${
-                  authMode === "signin"
-                    ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/50"
-                    : "text-slate-400 hover:text-slate-200"
-                }`}
-                onClick={() => {
-                  setAuthMode("signin");
-                  setAuthNotice(null);
+                style={{
+                  flex:1, padding:'9px 0', borderRadius:'8px', fontSize:'0.8rem',
+                  fontWeight:600, border:'none', cursor:'pointer', transition:'all 0.2s',
+                  background: authMode === 'signin' ? 'var(--cyan-primary)' : '#1e293b',
+                  color: authMode === 'signin' ? '#030813' : '#94a3b8',
                 }}
+                onClick={() => { setAuthMode("signin"); setAuthNotice(null); }}
               >
                 Sign In
               </button>
               <button
                 type="button"
-                className={`text-xs font-mono px-3 py-1.5 rounded transition ${
-                  authMode === "signup"
-                    ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/50"
-                    : "text-slate-400 hover:text-slate-200"
-                }`}
-                onClick={() => {
-                  setAuthMode("signup");
-                  setAuthNotice(null);
+                style={{
+                  flex:1, padding:'9px 0', borderRadius:'8px', fontSize:'0.8rem',
+                  fontWeight:600, border:'none', cursor:'pointer', transition:'all 0.2s',
+                  background: authMode === 'signup' ? 'var(--cyan-primary)' : '#1e293b',
+                  color: authMode === 'signup' ? '#030813' : '#94a3b8',
                 }}
+                onClick={() => { setAuthMode("signup"); setAuthNotice(null); }}
               >
                 Create Account
               </button>
             </div>
 
+            {/* Notice banner */}
             {authNotice && (
-              <div className="mb-4 p-3 bg-cyan-950/70 border border-cyan-500/50 rounded-lg text-xs font-mono text-cyan-200 leading-relaxed">
+              <div style={{marginBottom:'16px', padding:'12px', background:'rgba(8,51,68,0.7)', border:'1px solid rgba(0,229,255,0.4)', borderRadius:'8px', fontSize:'0.75rem', color:'#a5f3fc', lineHeight:1.5}}>
                 {authNotice}
               </div>
             )}
 
-            <form onSubmit={handleAuthSubmit} className="space-y-3 font-mono text-xs">
+            <form onSubmit={handleAuthSubmit} style={{display:'flex', flexDirection:'column', gap:'16px'}}>
+
+              {/* Role selector — signup only */}
               {authMode === "signup" && (
                 <div>
-                  <label className="text-slate-400 block mb-1">Full Name &amp; Professional Title</label>
+                  <label style={{fontSize:'0.7rem', color:'#64748b', display:'block', marginBottom:'8px', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.06em'}}>
+                    I am a
+                  </label>
+                  <div style={{display:'flex', gap:'10px'}}>
+                    <button
+                      type="button"
+                      style={{flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:'6px', padding:'10px 12px', borderRadius:'8px', border:'1px solid var(--cyan-primary)', fontSize:'0.75rem', fontWeight:600, cursor:'pointer', background:'rgba(0,229,255,0.08)', color:'var(--cyan-primary)'}}
+                    >
+                      👷 Site Engineer
+                    </button>
+                    <button
+                      type="button"
+                      style={{flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:'6px', padding:'10px 12px', borderRadius:'8px', border:'1px solid #334155', fontSize:'0.75rem', fontWeight:600, cursor:'pointer', background:'#1e293b', color:'#94a3b8'}}
+                    >
+                      🏢 Contractor / Company
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Full Name — signup only */}
+              {authMode === "signup" && (
+                <div>
+                  <label style={{fontSize:'0.75rem', color:'#94a3b8', display:'block', marginBottom:'6px', fontWeight:500}}>Full Name</label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Er. A. K. Sharma (Project Engineer)"
+                    placeholder="Enter your full name"
                     value={authFullName}
                     onChange={(e) => setAuthFullName(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-2 text-white"
+                    style={{width:'100%', boxSizing:'border-box', background:'#0f172a', border:'1px solid #334155', borderRadius:'8px', padding:'10px 14px', fontSize:'0.875rem', color:'#fff', outline:'none'}}
                   />
                 </div>
               )}
+
+              {/* Email */}
               <div>
-                <label className="text-slate-400 block mb-1">Corporate / Site Email</label>
+                <label style={{fontSize:'0.75rem', color:'#94a3b8', display:'block', marginBottom:'6px', fontWeight:500}}>Email address</label>
                 <input
                   type="email"
                   required
-                  placeholder="engineer@contractor.com"
+                  placeholder="you@example.com"
                   value={authEmail}
                   onChange={(e) => setAuthEmail(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-2 text-white"
+                  style={{width:'100%', boxSizing:'border-box', background:'#0f172a', border:'1px solid #334155', borderRadius:'8px', padding:'10px 14px', fontSize:'0.875rem', color:'#fff', outline:'none'}}
                 />
               </div>
+
+              {/* Password */}
               <div>
-                <label className="text-slate-400 block mb-1">Password</label>
+                <label style={{fontSize:'0.75rem', color:'#94a3b8', display:'block', marginBottom:'6px', fontWeight:500}}>Password</label>
                 <input
                   type="password"
                   required
-                  placeholder="••••••••••••"
+                  placeholder="Create a strong password"
                   value={authPassword}
                   onChange={(e) => setAuthPassword(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-2 text-white"
+                  style={{width:'100%', boxSizing:'border-box', background:'#0f172a', border:'1px solid #334155', borderRadius:'8px', padding:'10px 14px', fontSize:'0.875rem', color:'#fff', outline:'none'}}
                 />
               </div>
 
-              {authMode === "signup" && (
-                <div className="text-[0.7rem] text-slate-400 bg-slate-950/80 p-2.5 rounded border border-slate-800">
-                  🔒 <strong>Branded Verification:</strong> A confirmation email will be sent from <strong>AI Site Engineer</strong> to verify your credentials.
-                </div>
-              )}
-
+              {/* Submit */}
               <button
                 type="submit"
                 disabled={isAuthLoading}
-                className="btn-verify-signoff w-full mt-2"
+                className="btn-verify-signoff"
+                style={{width:'100%', marginTop:'4px'}}
               >
                 {isAuthLoading
                   ? "Authenticating..."
                   : authMode === "signin"
-                  ? "Sign In to Workspace"
-                  : "Send Verification Email (AI Site Engineer)"}
+                  ? "Sign In"
+                  : "Create Account"}
               </button>
+
+              {/* Footer link */}
+              <p style={{textAlign:'center', fontSize:'0.75rem', color:'#64748b', margin:0}}>
+                {authMode === "signin" ? (
+                  <>
+                    Don&apos;t have an account?{" "}
+                    <button type="button" style={{background:'none', border:'none', color:'var(--cyan-primary)', cursor:'pointer', fontSize:'0.75rem'}} onClick={() => { setAuthMode("signup"); setAuthNotice(null); }}>
+                      Sign up
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    Already have an account?{" "}
+                    <button type="button" style={{background:'none', border:'none', color:'var(--cyan-primary)', cursor:'pointer', fontSize:'0.75rem'}} onClick={() => { setAuthMode("signin"); setAuthNotice(null); }}>
+                      Sign in
+                    </button>
+                  </>
+                )}
+              </p>
             </form>
           </div>
         </div>
       )}
 
       <div className="app-shell">
+        {/* Construction Site Hero Background Backdrop */}
+        <div className="hero-background-backdrop" aria-hidden="true">
+          <img
+            src="/hero-bg.jpg"
+            alt="Construction Site Engineer"
+            className="hero-background-image"
+          />
+          <div className="hero-background-overlay" />
+        </div>
+
         {/* Top Header */}
         <header className="top-nav">
           <div className="brand-wrapper">
