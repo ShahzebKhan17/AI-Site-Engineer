@@ -1,6 +1,9 @@
 "use client";
 
 import { ChangeEvent, useEffect, useRef, useState } from "react";
+import { getSupabase } from "@/lib/supabaseClient";
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 type DrawingItem = {
   name: string;
@@ -227,6 +230,16 @@ export default function Home() {
   const [isSignedOff, setIsSignedOff] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // Supabase Auth & Session State
+  const [user, setUser] = useState<{ id?: string; email?: string; user_metadata?: any } | null>(null);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authFullName, setAuthFullName] = useState("");
+  const [isAuthLoading, setIsAuthLoading] = useState(false);
+  const [authNotice, setAuthNotice] = useState<string | null>(null);
+
   // Field Connection State
   const [isOnline, setIsOnline] = useState(true);
 
@@ -268,6 +281,33 @@ export default function Home() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    const supabase = getSupabase();
+    if (supabase) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.user) {
+          setUser({
+            id: session.user.id,
+            email: session.user.email,
+            user_metadata: session.user.user_metadata,
+          });
+        }
+      });
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        if (session?.user) {
+          setUser({
+            id: session.user.id,
+            email: session.user.email,
+            user_metadata: session.user.user_metadata,
+          });
+        } else {
+          setUser(null);
+        }
+      });
+      return () => subscription.unsubscribe();
+    }
+  }, []);
+
+  useEffect(() => {
     if (typeof window !== "undefined") {
       setIsOnline(navigator.onLine);
       const handleOnline = () => {
@@ -292,6 +332,76 @@ export default function Home() {
     setTimeout(() => setToastMessage(null), 3500);
   }
 
+  async function handleAuthSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setIsAuthLoading(true);
+    setAuthNotice(null);
+    const supabase = getSupabase();
+
+    if (!supabase) {
+      setUser({
+        id: "demo-engineer",
+        email: authEmail,
+        user_metadata: { full_name: authFullName || "Civil Site Engineer" },
+      });
+      setAuthModalOpen(false);
+      triggerToast(`Logged in as ${authEmail} (Local Workspace).`);
+      setIsAuthLoading(false);
+      return;
+    }
+
+    if (authMode === "signup") {
+      const redirectUrl = typeof window !== "undefined" ? `${window.location.origin}/auth/callback` : undefined;
+      const { data, error } = await supabase.auth.signUp({
+        email: authEmail,
+        password: authPassword,
+        options: {
+          data: {
+            full_name: authFullName || "Civil Site Engineer",
+            organization: "AI Site Engineer Workspace",
+          },
+          emailRedirectTo: redirectUrl,
+        },
+      });
+
+      if (error) {
+        setAuthNotice(error.message);
+      } else if (data.user && (!data.user.identities || data.user.identities.length === 0)) {
+        setAuthNotice("An account with this email already exists. Please sign in instead.");
+      } else {
+        setAuthNotice("Verification link sent! Please check your inbox from 'AI Site Engineer' to verify your account.");
+        triggerToast("Verification email dispatched from AI Site Engineer.");
+      }
+    } else {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: authEmail,
+        password: authPassword,
+      });
+
+      if (error) {
+        setAuthNotice(error.message);
+      } else if (data.user) {
+        setUser({
+          id: data.user.id,
+          email: data.user.email,
+          user_metadata: data.user.user_metadata,
+        });
+        setAuthModalOpen(false);
+        triggerToast(`Welcome back, ${data.user.email}! Project library synchronized.`);
+      }
+    }
+    setIsAuthLoading(false);
+  }
+
+  async function handleSignOut() {
+    const supabase = getSupabase();
+    if (supabase) {
+      await supabase.auth.signOut();
+    }
+    setUser(null);
+    triggerToast("Signed out of AI Site Engineer.");
+  }
+
   async function handleFileUpload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -309,7 +419,7 @@ export default function Home() {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      const res = await fetch("http://localhost:8000/drawings/extract", {
+      const res = await fetch(`${API_BASE_URL}/drawings/extract`, {
         method: "POST",
         body: formData,
       });
@@ -358,7 +468,7 @@ export default function Home() {
     setViewMode("member");
 
     try {
-      const res = await fetch("http://localhost:8000/questions/ask", {
+      const res = await fetch(`${API_BASE_URL}/questions/ask`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -421,7 +531,7 @@ export default function Home() {
     setIsProjectLoading(true);
     setViewMode("project");
     try {
-      const res = await fetch("http://localhost:8000/calculations/project-bbs", {
+      const res = await fetch(`${API_BASE_URL}/calculations/project-bbs`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -447,7 +557,7 @@ export default function Home() {
     setIsOptimizationLoading(true);
     setViewMode("optimization");
     try {
-      const res = await fetch("http://localhost:8000/calculations/optimize-cutting", {
+      const res = await fetch(`${API_BASE_URL}/calculations/optimize-cutting`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -473,7 +583,7 @@ export default function Home() {
     if (!activeResult) return;
     setIsSigningCert(true);
     try {
-      const res = await fetch("http://localhost:8000/calculations/qa-signoff", {
+      const res = await fetch(`${API_BASE_URL}/calculations/qa-signoff`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -929,6 +1039,124 @@ export default function Home() {
         </div>
       )}
 
+      {/* PROFESSIONAL AUTH MODAL (Sign In / Register) */}
+      {authModalOpen && (
+        <div className="modal-backdrop" onClick={() => setAuthModalOpen(false)}>
+          <div className="modal-card max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <span className="text-xs font-mono uppercase text-cyan-400 font-bold tracking-wider">
+                  ENGINEER ACCOUNT &amp; CLOUD REPOSITORY
+                </span>
+                <h3 className="text-lg font-bold text-white mt-1">
+                  {authMode === "signin" ? "Sign In to AI Site Engineer" : "Create Site Engineer Account"}
+                </h3>
+              </div>
+              <button className="text-slate-400 hover:text-white" onClick={() => setAuthModalOpen(false)}>
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-300 mb-4 font-sans leading-relaxed">
+              Persist structural drawing sheets, multi-member BBS calculations, and 12m stock cut lists across site visits.
+            </p>
+
+            <div className="flex border-b border-slate-800 pb-2 mb-4 gap-2">
+              <button
+                type="button"
+                className={`text-xs font-mono px-3 py-1.5 rounded transition ${
+                  authMode === "signin"
+                    ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/50"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+                onClick={() => {
+                  setAuthMode("signin");
+                  setAuthNotice(null);
+                }}
+              >
+                Sign In
+              </button>
+              <button
+                type="button"
+                className={`text-xs font-mono px-3 py-1.5 rounded transition ${
+                  authMode === "signup"
+                    ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/50"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+                onClick={() => {
+                  setAuthMode("signup");
+                  setAuthNotice(null);
+                }}
+              >
+                Create Account
+              </button>
+            </div>
+
+            {authNotice && (
+              <div className="mb-4 p-3 bg-cyan-950/70 border border-cyan-500/50 rounded-lg text-xs font-mono text-cyan-200 leading-relaxed">
+                {authNotice}
+              </div>
+            )}
+
+            <form onSubmit={handleAuthSubmit} className="space-y-3 font-mono text-xs">
+              {authMode === "signup" && (
+                <div>
+                  <label className="text-slate-400 block mb-1">Full Name &amp; Professional Title</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Er. A. K. Sharma (Project Engineer)"
+                    value={authFullName}
+                    onChange={(e) => setAuthFullName(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-2 text-white"
+                  />
+                </div>
+              )}
+              <div>
+                <label className="text-slate-400 block mb-1">Corporate / Site Email</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="engineer@contractor.com"
+                  value={authEmail}
+                  onChange={(e) => setAuthEmail(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-2 text-white"
+                />
+              </div>
+              <div>
+                <label className="text-slate-400 block mb-1">Password</label>
+                <input
+                  type="password"
+                  required
+                  placeholder="••••••••••••"
+                  value={authPassword}
+                  onChange={(e) => setAuthPassword(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-2 text-white"
+                />
+              </div>
+
+              {authMode === "signup" && (
+                <div className="text-[0.7rem] text-slate-400 bg-slate-950/80 p-2.5 rounded border border-slate-800">
+                  🔒 <strong>Branded Verification:</strong> A confirmation email will be sent from <strong>AI Site Engineer</strong> to verify your credentials.
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={isAuthLoading}
+                className="btn-verify-signoff w-full mt-2"
+              >
+                {isAuthLoading
+                  ? "Authenticating..."
+                  : authMode === "signin"
+                  ? "Sign In to Workspace"
+                  : "Send Verification Email (AI Site Engineer)"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
       <div className="app-shell">
         {/* Top Header */}
         <header className="top-nav">
@@ -947,6 +1175,31 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-3">
+            {user ? (
+              <div className="flex items-center gap-2 bg-slate-900/90 border border-cyan-500/40 rounded-full py-1 px-3">
+                <span className="text-xs font-mono text-cyan-300 font-bold">
+                  👷‍♂️ {user.user_metadata?.full_name || user.email}
+                </span>
+                <button
+                  onClick={handleSignOut}
+                  className="text-[0.7rem] font-mono text-slate-400 hover:text-rose-400 ml-1 transition"
+                  title="Sign out"
+                >
+                  Sign Out
+                </button>
+              </div>
+            ) : (
+              <button
+                className="btn-secondary text-xs"
+                onClick={() => {
+                  setAuthMode("signin");
+                  setAuthModalOpen(true);
+                }}
+              >
+                Sign In / Join
+              </button>
+            )}
+
             <div className={`text-xs font-mono px-3 py-1 rounded-full flex items-center gap-2 border ${
               isOnline
                 ? "bg-emerald-950/60 border-emerald-500/40 text-emerald-300"
