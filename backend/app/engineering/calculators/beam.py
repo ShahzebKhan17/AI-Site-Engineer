@@ -15,6 +15,8 @@ class BeamBarRequest(BaseModel):
     clear_span_mm: float = Field(gt=0)
     left_support_width_mm: float = Field(ge=0, default=300.0)
     right_support_width_mm: float = Field(ge=0, default=300.0)
+    beam_width_mm: float | None = Field(default=None, description="Beam web width in mm")
+    beam_depth_mm: float | None = Field(default=None, description="Beam total depth in mm")
     bar_position: str = Field(default="bottom_continuous")  # bottom_continuous, top_continuous, top_extra
     concrete_grade: str = Field(default="M25")
     steel_grade: str = Field(default="FE500")
@@ -41,8 +43,12 @@ class BeamBarResult(BaseModel):
     source_references: list[str]
     engine_version: str
     is_code_provisions: dict[str, str | float] | None = None
+    concrete_volume_m3: float = 0.0
+    concrete_grade: str = "M25"
 
     def to_bbs_result(self, bar_diameter_mm: float = 20.0, num_bars: int = 3) -> BBSCalculationResult:
+        from app.engineering.calculators.concrete import calculate_concrete_materials, DRY_VOLUME_FACTOR
+
         unit_wt = round((bar_diameter_mm ** 2) / 162.0, 3)
         total_len = round(self.cutting_length_m * num_bars, 3)
         total_wt = round(unit_wt * total_len, 2)
@@ -59,12 +65,30 @@ class BeamBarResult(BaseModel):
             shape_description="Beam longitudinal tension bar anchored into column core with 90° hooks",
             breakdown=self.breakdown,
         )
+
+        c_grade = getattr(self, "concrete_grade", "M25")
+        vol_m3 = getattr(self, "concrete_volume_m3", 0.0)
+        if vol_m3 > 0:
+            mat = calculate_concrete_materials(vol_m3, c_grade)
+            c_bags, s_m3, a_m3, w_l = mat.cement_bags, mat.sand_m3, mat.aggregate_m3, mat.water_liters
+            dry_v = round(vol_m3 * DRY_VOLUME_FACTOR, 4)
+        else:
+            c_bags, s_m3, a_m3, w_l, dry_v = None, None, None, None, None
+
         return BBSCalculationResult(
             member_id=self.member_id,
             member_type="BEAM",
             total_cutting_length_m=self.cutting_length_m,
+            total_cutting_length_mm=self.cutting_length_mm,
             total_weight_kg=total_wt,
             items=[item],
+            concrete_volume_m3=vol_m3 if vol_m3 > 0 else None,
+            dry_volume_m3=dry_v,
+            cement_bags=c_bags,
+            sand_m3=s_m3,
+            aggregate_m3=a_m3,
+            water_liters=w_l,
+            concrete_grade=c_grade if vol_m3 > 0 else None,
             assumptions=self.assumptions,
             source_references=self.source_references,
             is_code_provisions=self.is_code_provisions,
@@ -133,6 +157,8 @@ def calculate_beam_bar_length(request: BeamBarRequest) -> BeamBarResult:
     assumptions.append(f"Development length Ld = {ld_mm} mm ({ld_res.development_length_factor}d) per IS 456:2000 Cl. 26.2.1.")
 
     total_mm = round(sum(b.length_mm for b in breakdown), 1)
+    tot_span = request.clear_span_mm + request.left_support_width_mm + request.right_support_width_mm
+    vol_m3 = round((request.beam_width_mm * request.beam_depth_mm * tot_span) / 1e9, 4) if (request.beam_width_mm and request.beam_depth_mm) else 0.0
 
     return BeamBarResult(
         member_id=request.member_id,
@@ -144,4 +170,6 @@ def calculate_beam_bar_length(request: BeamBarRequest) -> BeamBarResult:
         source_references=request.source_references,
         engine_version=ENGINE_VERSION,
         is_code_provisions=is_code_provisions,
+        concrete_volume_m3=vol_m3,
+        concrete_grade=request.concrete_grade,
     )

@@ -41,8 +41,12 @@ class FootingMeshResult(BaseModel):
     assumptions: list[str]
     source_references: list[str]
     engine_version: str
+    concrete_volume_m3: float = 0.0
+    concrete_grade: str = "M25"
 
     def to_bbs_result(self, bar_diameter_mm: float = 12.0) -> BBSCalculationResult:
+        from app.engineering.calculators.concrete import calculate_concrete_materials, DRY_VOLUME_FACTOR
+
         unit_wt = round((bar_diameter_mm ** 2) / 162.0, 3)
         cut_long_m = round(self.cutting_length_long_mm / 1000.0, 3)
         cut_short_m = round(self.cutting_length_short_mm / 1000.0, 3)
@@ -74,12 +78,22 @@ class FootingMeshResult(BaseModel):
             shape_description="U-shaped bottom mesh bar with vertical 90° end hook legs",
             breakdown=self.breakdown_long,
         )
+
+        mat = calculate_concrete_materials(self.concrete_volume_m3, self.concrete_grade)
+
         return BBSCalculationResult(
             member_id=self.member_id,
             member_type="FOOTING",
             total_cutting_length_m=cut_long_m,
             total_weight_kg=self.total_mesh_weight_kg,
             items=[item_long, item_short],
+            concrete_volume_m3=self.concrete_volume_m3,
+            dry_volume_m3=round(self.concrete_volume_m3 * DRY_VOLUME_FACTOR, 4),
+            cement_bags=mat.cement_bags,
+            sand_m3=mat.sand_m3,
+            aggregate_m3=mat.aggregate_m3,
+            water_liters=mat.water_liters,
+            concrete_grade=self.concrete_grade,
             assumptions=self.assumptions,
             source_references=self.source_references,
             engine_version=self.engine_version,
@@ -138,6 +152,8 @@ def calculate_footing_mesh(request: FootingMeshRequest) -> FootingMeshResult:
         f"Unit steel weight calculated via standard civil code formula d²/162 ({round(unit_wt, 2)} kg/m).",
     ]
 
+    vol_m3 = round((request.length_mm * request.width_mm * request.depth_mm) / 1e9, 4)
+
     return FootingMeshResult(
         member_id=request.member_id,
         cutting_length_long_mm=cut_long,
@@ -149,4 +165,6 @@ def calculate_footing_mesh(request: FootingMeshRequest) -> FootingMeshResult:
         assumptions=assumptions,
         source_references=request.source_references,
         engine_version=ENGINE_VERSION,
+        concrete_volume_m3=vol_m3,
+        concrete_grade=request.concrete_grade,
     )

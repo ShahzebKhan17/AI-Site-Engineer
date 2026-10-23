@@ -76,7 +76,7 @@ def parse_tabular_schedule(
                 entity_type = "COLUMN"
             elif entity_code.startswith("B"):
                 entity_type = "BEAM"
-            elif entity_code.startswith("F"):
+            elif entity_code.startswith("F") or entity_code.startswith("RF") or "RAFT" in entity_code:
                 entity_type = "FOOTING"
             elif entity_code.startswith("S"):
                 entity_type = "SLAB"

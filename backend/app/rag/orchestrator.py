@@ -103,7 +103,8 @@ def orchestrate_drawing_question(
     is_calc_query = (
         parsed.calculation_intent is not None
         or any(w in request.question.lower() for w in [
-            "cutting length", "bbs", "calculate", "cutting", "bar length", "schedule", "rebar", "mesh", "tonnage", "weight"
+            "cutting length", "bbs", "calculate", "cutting", "bar length", "schedule", "rebar", "mesh", "tonnage", "weight",
+            "concrete", "volume", "m3", "cement", "sand", "aggregate", "mix"
         ])
     )
     if is_calc_query:
@@ -123,8 +124,9 @@ def orchestrate_drawing_question(
                 calc_result = calculate_retaining_wall_bbs(extraction_output.retaining_wall_request)
             elif mtype == "beam" and extraction_output.beam_request:
                 calc_result = calculate_beam_bar_length(extraction_output.beam_request).to_bbs_result()
-            elif mtype == "footing" and extraction_output.footing_request:
-                calc_result = calculate_footing_mesh(extraction_output.footing_request).to_bbs_result()
+            elif mtype in ("footing", "raft") and extraction_output.footing_request:
+                foot_dia = extraction_output.footing_request.bar_diameter_mm
+                calc_result = calculate_footing_mesh(extraction_output.footing_request).to_bbs_result(bar_diameter_mm=foot_dia)
             elif extraction_output.column_request:
                 calc_result = calculate_longitudinal_bar(extraction_output.column_request).to_bbs_result()
         except Exception as err:

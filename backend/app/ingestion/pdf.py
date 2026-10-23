@@ -40,6 +40,12 @@ def detect_entity_in_text(text: str) -> tuple[str | None, str | None]:
     if pile_cap_match:
         return pile_cap_match.group(1).upper(), "pile_cap"
 
+    # Raft foundation detection (support RAFT, RF1, or reinforcement typical schedule for raft)
+    raft_match = re.search(r"\b(?:raft\s*(?:foundation|footing|slab)?\s*(?:no\.?\s*)?(RF\d+|R\d+)?)\b|\b(RF\d+)\b", text, re.IGNORECASE)
+    if (raft_match and (raft_match.group(1) or raft_match.group(2) or "raft" in text.lower())) or ("reinforcement typical schedule" in text.lower() and "raft" in text.lower()) or re.search(r"\braft\b", text, re.IGNORECASE):
+        code = (raft_match.group(1) or raft_match.group(2) if raft_match and (raft_match.group(1) or raft_match.group(2)) else "RAFT").upper()
+        return code, "footing"
+
     pier_match = re.search(r"\b(?:pier|pedestal)\s*(?:no\.?\s*)?(P[RD]\d+)\b|\b(P[RD]\d+)\b", text, re.IGNORECASE)
     if pier_match:
         code = pier_match.group(1) or pier_match.group(2)
@@ -62,9 +68,10 @@ def detect_entity_in_text(text: str) -> tuple[str | None, str | None]:
     if beam_match:
         return beam_match.group(1).upper(), "beam"
 
-    footing_match = re.search(r"\b(?:footing\s*(?:no\.?\s*)?)?(F\d+)\b", text, re.IGNORECASE)
+    footing_match = re.search(r"\b(?:(?:isolated\s+|raft\s+)?footing\s*(?:no\.?\s*)?(F\d+)?|(F\d+))\b", text, re.IGNORECASE)
     if footing_match:
-        return footing_match.group(1).upper(), "footing"
+        f_code = footing_match.group(1) or footing_match.group(2) or "FOOTING"
+        return f_code.upper(), "footing"
 
     pile_match = re.search(r"\b(?:pile\s*(?:no\.?\s*)?)?(P\d+)\b", text, re.IGNORECASE)
     if pile_match:

@@ -11,6 +11,10 @@ from app.engineering.calculators.pile_cap import PileCapScheduleRequest, calcula
 from app.engineering.calculators.retaining_wall import RetainingWallScheduleRequest, calculate_retaining_wall_bbs
 from app.engineering.calculators.slab import SlabScheduleRequest, calculate_slab_bbs
 from app.engineering.calculators.staircase import StaircaseScheduleRequest, calculate_staircase_bbs
+from app.engineering.calculators.concrete import (
+    ConcreteCalculationResult,
+    calculate_member_concrete_volume,
+)
 from app.engineering.models import BBSCalculationResult, ColumnBarRequest, ColumnBarResult, ProjectBBSResponse
 from app.engineering.optimization import (
     ProcurementOrderRequisition,
@@ -74,6 +78,24 @@ def calculate_pier(request: PierScheduleRequest) -> BBSCalculationResult:
 def calculate_retaining_wall(request: RetainingWallScheduleRequest) -> BBSCalculationResult:
     """Run deterministic BBS calculation for cantilever retaining wall per IS 456 & SP 34."""
     return calculate_retaining_wall_bbs(request)
+
+
+class ConcreteVolumeRequest(BaseModel):
+    member_type: str = Field(default="column", description="Structural member type: column, beam, footing, slab, pile, pile_cap, pier, retaining_wall, staircase")
+    member_id: str = Field(default="M1", description="Identifier of the member")
+    concrete_grade: str = Field(default="M25", description="Grade of concrete: M15, M20, M25, M30, M35, M40")
+    parameters: dict[str, Any] = Field(default_factory=dict, description="Dimensions dictionary")
+
+
+@router.post("/concrete-volume", response_model=ConcreteCalculationResult)
+def calculate_concrete(request: ConcreteVolumeRequest) -> ConcreteCalculationResult:
+    """Calculate exact concrete volume (m³) and IS 456 material breakdown (cement bags, sand, aggregate, water)."""
+    return calculate_member_concrete_volume(
+        member_type=request.member_type,
+        member_id=request.member_id,
+        concrete_grade=request.concrete_grade,
+        params=request.parameters,
+    )
 
 
 class ProjectBBSRequest(BaseModel):

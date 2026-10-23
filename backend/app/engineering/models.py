@@ -7,6 +7,8 @@ class ColumnBarRequest(BaseModel):
     storey_height_mm: float = Field(gt=0)
     footing_embedment_mm: float = Field(ge=0)
     top_extension_mm: float = Field(ge=0)
+    column_width_mm: float | None = Field(default=None, description="Column cross-section width in mm")
+    column_depth_mm: float | None = Field(default=None, description="Column cross-section depth in mm")
     bend_allowance_mm: float = Field(ge=0, default=0)
     lap_length_mm: float = Field(ge=0, default=0)
     concrete_grade: str = Field(min_length=1)
@@ -52,6 +54,13 @@ class BBSCalculationResult(BaseModel):
     total_cutting_length_mm: float = 0.0
     total_weight_kg: float
     items: list[BBSItem]
+    concrete_volume_m3: float | None = None
+    dry_volume_m3: float | None = None
+    cement_bags: float | None = None
+    sand_m3: float | None = None
+    aggregate_m3: float | None = None
+    water_liters: float | None = None
+    concrete_grade: str | None = None
     assumptions: list[str] = Field(default_factory=list)
     source_references: list[str] = Field(default_factory=list)
     is_code_provisions: dict[str, str | float] | None = None
@@ -85,8 +94,12 @@ class ColumnBarResult(BaseModel):
     source_references: list[str]
     engine_version: str
     is_code_provisions: dict[str, str | float] | None = None
+    concrete_volume_m3: float = 0.0
+    concrete_grade: str = "M25"
 
     def to_bbs_result(self, bar_diameter_mm: float = 16.0, num_bars: int = 4) -> BBSCalculationResult:
+        from app.engineering.calculators.concrete import calculate_concrete_materials, DRY_VOLUME_FACTOR
+
         unit_wt = round((bar_diameter_mm ** 2) / 162.0, 3)
         total_len = round(self.cutting_length_m * num_bars, 3)
         total_wt = round(unit_wt * total_len, 2)
@@ -103,6 +116,16 @@ class ColumnBarResult(BaseModel):
             shape_description="Straight vertical column bar with 90° footing bend",
             breakdown=self.breakdown,
         )
+
+        c_grade = getattr(self, "concrete_grade", "M25")
+        vol_m3 = getattr(self, "concrete_volume_m3", 0.0)
+        if vol_m3 > 0:
+            mat = calculate_concrete_materials(vol_m3, c_grade)
+            c_bags, s_m3, a_m3, w_l = mat.cement_bags, mat.sand_m3, mat.aggregate_m3, mat.water_liters
+            dry_v = round(vol_m3 * DRY_VOLUME_FACTOR, 4)
+        else:
+            c_bags, s_m3, a_m3, w_l, dry_v = None, None, None, None, None
+
         return BBSCalculationResult(
             member_id=self.member_id,
             member_type="COLUMN",
@@ -110,6 +133,13 @@ class ColumnBarResult(BaseModel):
             total_cutting_length_mm=self.cutting_length_mm,
             total_weight_kg=total_wt,
             items=[item],
+            concrete_volume_m3=vol_m3 if vol_m3 > 0 else None,
+            dry_volume_m3=dry_v,
+            cement_bags=c_bags,
+            sand_m3=s_m3,
+            aggregate_m3=a_m3,
+            water_liters=w_l,
+            concrete_grade=c_grade if vol_m3 > 0 else None,
             assumptions=self.assumptions,
             source_references=self.source_references,
             is_code_provisions=self.is_code_provisions,
@@ -146,6 +176,11 @@ class ProjectBBSResponse(BaseModel):
     total_members_count: int
     total_steel_kg: float
     total_steel_tonnes: float
+    total_concrete_volume_m3: float = 0.0
+    total_dry_volume_m3: float = 0.0
+    total_cement_bags: float = 0.0
+    total_sand_m3: float = 0.0
+    total_aggregate_m3: float = 0.0
     diameter_summaries: list[DiameterSummary]
     items: list[ConsolidatedBBSItem]
     members: list[BBSCalculationResult]

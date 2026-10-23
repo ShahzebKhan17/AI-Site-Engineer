@@ -170,11 +170,18 @@ def generate_consolidated_project_bbs(
     grand_total_kg = round(sum(d.total_weight_kg for d in diameter_summaries), 2)
     grand_total_tonnes = round(grand_total_kg / 1000.0, 3)
 
+    total_concrete_vol = round(sum(m.concrete_volume_m3 or 0.0 for m in members_results), 3)
+    total_dry_vol = round(sum(m.dry_volume_m3 or 0.0 for m in members_results), 3)
+    total_cement_bags = round(sum(m.cement_bags or 0.0 for m in members_results), 2)
+    total_sand = round(sum(m.sand_m3 or 0.0 for m in members_results), 3)
+    total_aggregate = round(sum(m.aggregate_m3 or 0.0 for m in members_results), 3)
+
     assumptions = [
         "All reinforcement steel conforming to IS 1786 High Yield Strength Deformed (HYSD) Fe500.",
         "Unit steel weights calculated strictly per IS 456 formula: Weight = d² / 162 kg/m.",
         "Standard elongation bend deductions applied per SP 34:1987 Cl. 3.2 & IS 2502 (-2d for 90°, -1d for 45°).",
         "Confinement lap zones and development lengths calculated per IS 456 Cl. 26.2.1 and SP 34 Cl. 7.2.",
+        "Concrete material requirements based on dry volume factor 1.54x and IS 456:2000 mix ratios with standard 50 kg cement bags.",
     ]
 
     return ProjectBBSResponse(
@@ -182,6 +189,11 @@ def generate_consolidated_project_bbs(
         total_members_count=len(members_results),
         total_steel_kg=grand_total_kg,
         total_steel_tonnes=grand_total_tonnes,
+        total_concrete_volume_m3=total_concrete_vol,
+        total_dry_volume_m3=total_dry_vol,
+        total_cement_bags=total_cement_bags,
+        total_sand_m3=total_sand,
+        total_aggregate_m3=total_aggregate,
         diameter_summaries=diameter_summaries,
         items=consolidated_items,
         members=members_results,

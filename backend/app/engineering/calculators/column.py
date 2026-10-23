@@ -74,6 +74,7 @@ def calculate_longitudinal_bar(request: ColumnBarRequest) -> ColumnBarResult:
         breakdown.append(CalculationBreakdown(label="Bend deduction (90 deg)", length_mm=-bend_deduction_mm))
 
     total = sum(item.length_mm for item in breakdown)
+    c_vol = round((request.column_width_mm * request.column_depth_mm * request.storey_height_mm) / 1e9, 4) if (request.column_width_mm and request.column_depth_mm) else 0.0
 
     return ColumnBarResult(
         member_id=request.member_id,
@@ -84,4 +85,6 @@ def calculate_longitudinal_bar(request: ColumnBarRequest) -> ColumnBarResult:
         source_references=request.source_references,
         engine_version=ENGINE_VERSION,
         is_code_provisions=is_code_provisions if request.use_is_code_rules else None,
+        concrete_volume_m3=c_vol,
+        concrete_grade=request.concrete_grade,
     )

@@ -71,3 +71,56 @@ def test_synthesize_answer_general_drawing_query():
 
     assert "M25" in answer or "Drawing Intelligence" in answer
     assert "Sheet S-00/Notes" in answer
+
+
+def test_synthesize_answer_raft_rebar_schedule():
+    from app.rag.extractor import ScheduleTableRow
+
+    schedule_chunk = RetrievedChunk(
+        chunk_id="c3",
+        drawing_id="d3",
+        content=(
+            "PROJECT: G+8 RESIDENTIAL APARTMENTS (REV 03). "
+            "1. All dimensions are in mm unless otherwise specified. "
+            "REINFORCEMENT TYPICAL SCHEDULE\n"
+            "BAR ID   REINFORCEMENT        LOCATION   LAYER\n"
+            "01       Y16 AT 150 C/C       RAFT       BOTTOM\n"
+            "02       Y12 AT 150 C/C       RAFT       TOP\n"
+            "03       Y8 AT 150 C/C        RAFT       SHEAR LINKS\n"
+            "2. Grade of concrete M25."
+        ),
+        page_number=1,
+        source_reference="Sheet S-01/Page 1",
+    )
+
+    schedule_rows = [
+        ScheduleTableRow(bar_id="01", reinforcement="Y16 AT 150 C/C", location="RAFT", layer="BOTTOM", bar_diameter_mm=16.0, spacing_mm=150.0),
+        ScheduleTableRow(bar_id="02", reinforcement="Y12 AT 150 C/C", location="RAFT", layer="TOP", bar_diameter_mm=12.0, spacing_mm=150.0),
+        ScheduleTableRow(bar_id="03", reinforcement="Y8 AT 150 C/C", location="RAFT", layer="SHEAR LINKS", bar_diameter_mm=8.0, spacing_mm=150.0),
+    ]
+
+    extraction = ExtractionOutput(
+        member_id="RAFT",
+        member_type="footing",
+        schedule_rows=schedule_rows,
+        confidence=1.0,
+        citations=["Sheet S-01/Page 1"],
+    )
+
+    answer = synthesize_engineering_answer(
+        question="What is the dia of steel in raft?",
+        chunks=[schedule_chunk],
+        extraction=extraction,
+        calculation=None,
+        warnings=[],
+    )
+
+    # Must contain the schedule rows
+    assert "Bottom: Y16 @ 150 c/c" in answer
+    assert "Top: Y12 @ 150 c/c" in answer
+    assert "Shear links: Y8 @ 150 c/c" in answer
+    assert "(Bottom: Y16 @ 150 c/c, Top: Y12 @ 150 c/c, Shear links: Y8 @ 150 c/c)" in answer
+
+    # Must NOT dump title block sentences
+    assert "PROJECT: G+8 RESIDENTIAL APARTMENTS" not in answer
+    assert "All dimensions are in mm unless otherwise specified" not in answer

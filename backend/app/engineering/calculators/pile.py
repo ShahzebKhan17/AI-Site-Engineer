@@ -155,12 +155,24 @@ def calculate_pile_bbs(request: PileScheduleRequest) -> BBSCalculationResult:
     total_weight = round(sum(i.total_weight_kg for i in items), 2)
     primary_cutting_m = items[0].cutting_length_m
 
+    from app.engineering.calculators.concrete import calculate_concrete_materials, DRY_VOLUME_FACTOR
+    radius_m = (d_pile / 1000.0) / 2.0
+    vol_m3 = round(math.pi * (radius_m ** 2) * request.pile_length_m, 4)
+    mat = calculate_concrete_materials(vol_m3, request.concrete_grade)
+
     return BBSCalculationResult(
         member_id=request.member_id,
         member_type="PILE",
         total_cutting_length_m=primary_cutting_m,
         total_weight_kg=total_weight,
         items=items,
+        concrete_volume_m3=vol_m3,
+        dry_volume_m3=round(vol_m3 * DRY_VOLUME_FACTOR, 4),
+        cement_bags=mat.cement_bags,
+        sand_m3=mat.sand_m3,
+        aggregate_m3=mat.aggregate_m3,
+        water_liters=mat.water_liters,
+        concrete_grade=request.concrete_grade,
         assumptions=assumptions,
         source_references=request.source_references,
         is_code_provisions=is_code_provisions,
