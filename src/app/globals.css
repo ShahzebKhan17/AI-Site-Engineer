@@ -78,11 +78,11 @@ body {
 /* Top Navigation Bar */
 .top-nav {
   position: relative;
-  z-index: 2;
+  z-index: 10;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 24px 0 20px;
+  padding: 22px 0 18px;
   border-bottom: 1px solid rgba(0, 229, 255, 0.15);
 }
 
@@ -164,7 +164,7 @@ body {
   left: 50%;
   transform: translateX(-50%);
   width: 100vw;
-  height: 720px;
+  height: 980px;
   pointer-events: none;
   z-index: 0;
   overflow: hidden;
@@ -172,22 +172,24 @@ body {
 
 .hero-background-image {
   position: absolute;
-  top: 0;
+  top: -80px;
   left: 0;
   width: 100%;
-  height: 100%;
+  height: calc(100% + 140px);
   object-fit: cover;
-  object-position: 82% 25%;
-  opacity: 0.95;
-  filter: contrast(1.15) brightness(1.1);
+  object-position: 88% center;
+  transform: scale(1.35) translateY(-50px);
+  transform-origin: 88% 28%;
+  opacity: 1;
+  filter: contrast(1.15) brightness(1.2) saturate(1.1);
 }
 
 .hero-background-overlay {
   position: absolute;
   inset: 0;
   background: 
-    linear-gradient(180deg, rgba(3, 8, 19, 0.25) 0%, rgba(3, 8, 19, 0.5) 60%, var(--bg-deep) 98%),
-    linear-gradient(90deg, rgba(3, 8, 19, 0.98) 0%, rgba(3, 8, 19, 0.92) 38%, rgba(3, 8, 19, 0.55) 58%, rgba(3, 8, 19, 0.05) 78%, transparent 100%);
+    linear-gradient(180deg, rgba(3, 8, 19, 0.85) 0%, rgba(3, 8, 19, 0.35) 12%, rgba(3, 8, 19, 0.05) 24%, rgba(3, 8, 19, 0.05) 45%, rgba(3, 8, 19, 0.5) 75%, var(--bg-deep) 100%),
+    linear-gradient(90deg, rgba(3, 8, 19, 0.98) 0%, rgba(3, 8, 19, 0.82) 28%, rgba(3, 8, 19, 0.15) 55%, transparent 68%);
 }
 
 /* Hero Section */
@@ -206,14 +208,16 @@ body {
   gap: 8px;
   font-family: var(--font-mono);
   font-size: 0.75rem;
+  font-weight: 700;
   letter-spacing: 0.12em;
-  color: var(--cyan-primary);
-  background: rgba(0, 229, 255, 0.08);
-  border: 1px solid rgba(0, 229, 255, 0.35);
-  padding: 7px 18px;
+  color: #38bdf8;
+  background: rgba(3, 10, 24, 0.92);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 229, 255, 0.5);
+  padding: 8px 20px;
   border-radius: 9999px;
   margin-bottom: 24px;
-  box-shadow: 0 0 18px rgba(0, 229, 255, 0.15);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.75), 0 0 16px rgba(0, 229, 255, 0.25);
 }
 
 .hero-title {
@@ -223,11 +227,12 @@ body {
   letter-spacing: -0.04em;
   margin: 0 0 20px;
   color: #ffffff;
+  text-shadow: 0 2px 14px rgba(3, 8, 19, 0.95), 0 0 30px rgba(3, 8, 19, 0.85);
 }
 
 .hero-title span {
   color: var(--cyan-primary);
-  text-shadow: 0 0 30px rgba(0, 229, 255, 0.45);
+  text-shadow: 0 2px 16px rgba(3, 8, 19, 0.95), 0 0 30px rgba(0, 229, 255, 0.55);
 }
 
 .hero-subtitle {
@@ -280,31 +285,34 @@ body {
 }
 
 .console-action-btn {
-  background: linear-gradient(135deg, #00e5ff 0%, #0284c7 100%);
+  background: linear-gradient(135deg, #00f0ff 0%, #0284c7 100%);
   color: #030813;
-  font-weight: 800;
+  font-family: var(--font-sans);
+  font-weight: 700;
   font-size: 0.88rem;
-  border: none;
+  letter-spacing: 0.01em;
+  border: 1px solid rgba(0, 240, 255, 0.7);
   border-radius: 10px;
-  padding: 12px 24px;
+  padding: 10px 22px;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 8px;
-  box-shadow: 0 0 20px rgba(0, 229, 255, 0.4);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  white-space: nowrap;
+  box-shadow: 0 0 22px rgba(0, 229, 255, 0.45);
+  transition: all 0.2s ease;
 }
 
 .console-action-btn:hover {
+  background: linear-gradient(135deg, #38bdf8 0%, #00f0ff 100%);
   transform: translateY(-1px);
-  box-shadow: 0 0 30px rgba(0, 229, 255, 0.6);
+  box-shadow: 0 0 32px rgba(0, 229, 255, 0.7);
 }
 
 .console-action-btn:disabled {
-  opacity: 0.4;
+  opacity: 0.75;
   cursor: not-allowed;
   transform: none;
-  box-shadow: none;
 }
 
 .query-presets {
@@ -692,20 +700,25 @@ body {
 }
 
 .btn-secondary {
-  background: rgba(0, 229, 255, 0.08);
-  border: 1px solid rgba(0, 229, 255, 0.3);
+  background: rgba(4, 13, 29, 0.92);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(0, 229, 255, 0.45);
   color: var(--cyan-primary);
   font-family: var(--font-mono);
   font-size: 0.8rem;
-  padding: 9px 16px;
-  border-radius: 8px;
+  font-weight: 600;
+  padding: 9px 18px;
+  border-radius: 10px;
   cursor: pointer;
   transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), 0 0 10px rgba(0, 229, 255, 0.15);
 }
 
 .btn-secondary:hover {
-  background: rgba(0, 229, 255, 0.18);
+  background: rgba(6, 22, 48, 0.98);
   border-color: var(--cyan-primary);
+  color: #ffffff;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 229, 255, 0.35);
 }
 
 .btn-verify-signoff {

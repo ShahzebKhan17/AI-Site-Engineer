@@ -406,8 +406,10 @@ export default function Home() {
   }
 
   async function handleExecuteQuery(queryString?: string) {
-    const effectiveQuery = queryString || query;
-    if (!effectiveQuery.trim()) return;
+    const effectiveQuery = (queryString || query).trim() || "Cutting length for slab S1, pile P1, beam B4, or column C12";
+    if (!query.trim()) {
+      setQuery("Cutting length for slab S1, pile P1, beam B4, or column C12");
+    }
 
     setIsLoading(true);
     setIsSignedOff(false);
@@ -1166,18 +1168,6 @@ export default function Home() {
                 Sign In / Join
               </button>
             )}
-
-            <div className={`text-xs font-mono px-3 py-1 rounded-full flex items-center gap-2 border ${
-              isOnline
-                ? "bg-emerald-950/60 border-emerald-500/40 text-emerald-300"
-                : "bg-amber-950/60 border-amber-500/40 text-amber-300"
-            }`}>
-              <span className={`h-2 w-2 rounded-full ${isOnline ? "bg-emerald-400" : "bg-amber-400 animate-ping"}`} />
-              <span>{isOnline ? "FIELD ONLINE" : "OFFLINE CACHE ACTIVE"}</span>
-            </div>
-            <span className="text-xs font-mono text-cyan-400 border border-cyan-500/30 bg-cyan-950/40 px-2.5 py-1 rounded">
-              PHASE 4: FIELD READY
-            </span>
           </div>
         </header>
 
@@ -1188,14 +1178,9 @@ export default function Home() {
             ZERO-HALLUCINATION CIVIL BBS &amp; 12M STOCK OPTIMIZATION
           </div>
 
-          <h2 className="hero-title">
-            Verifiable AI for <span>Civil Site Engineers &amp; Rebar Contractors.</span>
+          <h2 className="hero-title mb-8">
+            AI for <span>Site Engineers &amp; Contractors.</span>
           </h2>
-
-          <p className="hero-subtitle">
-            Parse structural drawing PDFs, schedules, and details into verifiable inputs for
-            deterministic IS 456, IS 2911 &amp; SP 34 Bar Bending calculations. Click any number to audit its exact formula.
-          </p>
 
           <div className="console-box">
             <span className="terminal-icon" aria-hidden="true">&gt;</span>
@@ -1212,7 +1197,8 @@ export default function Home() {
             <button
               className="console-action-btn"
               onClick={() => handleExecuteQuery()}
-              disabled={isLoading || !query.trim()}
+              disabled={isLoading}
+              title="Calculate Member BBS"
             >
               {isLoading ? "Running Engine..." : "Calculate Member BBS"}
               <span aria-hidden="true">→</span>
@@ -1224,12 +1210,14 @@ export default function Home() {
         <section className="workspace-grid">
           {/* Left Panel: Drawing Sheets & Multi-Format Ingestion */}
           <div className="panel-card">
-            <div className="panel-header">
-              <h3 className="panel-title">
-                Drawing Sheets &amp; Schedules
-                <span className="panel-code-tag">ACTIVE PROJECT: {projectName.toUpperCase()}</span>
-              </h3>
-              <span className="text-xs font-mono text-cyan-400">{drawings.length} SHEETS</span>
+            <div className="panel-header flex-wrap gap-2">
+              <div>
+                <h3 className="panel-title">Drawing Sheets &amp; Schedules</h3>
+                <span className="panel-code-tag mt-1 inline-block">ACTIVE: {projectName.toUpperCase()}</span>
+              </div>
+              <span className="text-xs font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/30 px-2 py-0.5 rounded">
+                {drawings.length} {drawings.length === 1 ? "SHEET" : "SHEETS"}
+              </span>
             </div>
 
             <div className="upload-dropzone" onClick={() => fileInputRef.current?.click()}>
@@ -1241,7 +1229,7 @@ export default function Home() {
               ref={fileInputRef}
               type="file"
               accept=".pdf,.csv,.tsv,.txt"
-              className="hidden"
+              style={{ display: "none" }}
               onChange={handleFileUpload}
             />
 
@@ -1268,30 +1256,32 @@ export default function Home() {
               )}
             </div>
 
-            <div className="mt-4 pt-4 border-t border-slate-800 space-y-2">
+            <div className="mt-4 pt-4 border-t border-slate-800 space-y-2.5">
               <button
-                className="w-full bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/50 text-cyan-300 font-mono text-xs py-2.5 px-3 rounded-lg flex items-center justify-center gap-2 transition"
+                type="button"
+                className="w-full bg-cyan-950/70 hover:bg-cyan-900 border border-cyan-500/40 hover:border-cyan-400 text-cyan-200 font-mono text-xs py-2.5 px-3 rounded-lg flex items-center justify-center gap-2 transition-all shadow-sm hover:shadow-[0_0_15px_rgba(0,229,255,0.2)] cursor-pointer"
                 onClick={handleLoadProjectBBS}
                 disabled={isProjectLoading}
               >
                 <span>📊</span>
-                <span>{isProjectLoading ? "Compiling Project BBS..." : "Compile Consolidated Project BBS"}</span>
+                <span className="font-semibold">{isProjectLoading ? "Compiling Project BBS..." : "Compile Consolidated Project BBS"}</span>
               </button>
 
               <button
-                className="w-full bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-amber-500/50 text-amber-300 font-mono text-xs py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition"
+                type="button"
+                className="w-full bg-slate-900/90 hover:bg-slate-850 border border-slate-700 hover:border-amber-500/50 text-amber-300 font-mono text-xs py-2.5 px-3 rounded-lg flex items-center justify-center gap-2 transition-all shadow-sm hover:shadow-[0_0_15px_rgba(245,158,11,0.2)] cursor-pointer"
                 onClick={handleLoadOptimization}
                 disabled={isOptimizationLoading}
               >
                 <span>✂️</span>
-                <span>{isOptimizationLoading ? "Optimizing 12m Bars..." : "12m Stock Bar 1D Cutting Optimizer"}</span>
+                <span className="font-semibold">{isOptimizationLoading ? "Optimizing 12m Bars..." : "12m Stock Bar 1D Cutting Optimizer"}</span>
               </button>
             </div>
           </div>
 
           {/* Right Panel: Deterministic BBS Calculation Engine Output */}
           <div className="panel-card">
-            <div className="panel-header">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-800/80">
               <div>
                 <h3 className="panel-title">
                   {viewMode === "project"
@@ -1301,60 +1291,109 @@ export default function Home() {
                     : "Member Calculation Breakdown"}
                   <span className="panel-code-tag">IS 456 / SP 34 / IS 1786</span>
                 </h3>
-                <div className="text-[0.7rem] font-mono text-slate-400 mt-1">
+                <div className="text-[0.72rem] font-mono text-slate-400 mt-1">
                   💡 <em>Click any quantity (length, unit weight, or total weight) to audit its exact formula.</em>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  className={`btn-secondary ${viewMode === "member" ? "border-cyan-400 text-cyan-300 bg-cyan-500/20" : ""}`}
-                  onClick={() => setViewMode("member")}
-                >
-                  Member View
-                </button>
-                <button
-                  className={`btn-secondary ${viewMode === "project" ? "border-cyan-400 text-cyan-300 bg-cyan-500/20" : ""}`}
-                  onClick={() => {
-                    if (!projectBBSData) handleLoadProjectBBS();
-                    else setViewMode("project");
-                  }}
-                >
-                  Project Summary
-                </button>
-                <button
-                  className={`btn-secondary ${viewMode === "optimization" ? "border-amber-400 text-amber-300 bg-amber-500/20" : ""}`}
-                  onClick={() => {
-                    if (!procurementData) handleLoadOptimization();
-                    else setViewMode("optimization");
-                  }}
-                >
-                  12m Stock Optimizer
-                </button>
-
-                {viewMode === "member" ? (
-                  <button className="btn-secondary" onClick={handleExportBBS}>
-                    Export Member CSV
-                  </button>
-                ) : viewMode === "project" ? (
-                  <button className="btn-secondary" onClick={handleExportProjectBBS} disabled={!projectBBSData}>
-                    Export Project CSV
-                  </button>
-                ) : (
-                  <button className="btn-secondary" onClick={handleExportProcurementPO} disabled={!procurementData}>
-                    Export 12m Cut-List &amp; PO
-                  </button>
-                )}
-
-                {viewMode === "member" && (
+              {/* Presentable Toolbar & Actions */}
+              <div className="flex flex-wrap items-center gap-4">
+                {/* 3 View Mode Buttons with Prominent Gap & Box Radius */}
+                <div className="flex flex-wrap items-center gap-3.5">
                   <button
-                    className="btn-secondary"
-                    onClick={() => setShowModal(true)}
-                    style={{ borderColor: isSignedOff ? "#34d399" : undefined, color: isSignedOff ? "#34d399" : undefined }}
+                    type="button"
+                    style={{ borderRadius: "12px" }}
+                    className={`px-4 py-2 font-mono text-xs transition-all cursor-pointer border ${
+                      viewMode === "member"
+                        ? "bg-cyan-500/25 text-cyan-200 border-cyan-400 shadow-[0_0_16px_rgba(0,229,255,0.35)] font-bold"
+                        : "bg-slate-900/90 text-slate-300 hover:text-cyan-200 hover:bg-slate-800 hover:border-cyan-400/60 border-slate-700/80 font-medium"
+                    }`}
+                    onClick={() => setViewMode("member")}
                   >
-                    {isSignedOff ? "✓ QA Certified (SHA-256)" : "Review & Verify"}
+                    Member View
                   </button>
-                )}
+                  <button
+                    type="button"
+                    style={{ borderRadius: "12px" }}
+                    className={`px-4 py-2 font-mono text-xs transition-all cursor-pointer border ${
+                      viewMode === "project"
+                        ? "bg-cyan-500/25 text-cyan-200 border-cyan-400 shadow-[0_0_16px_rgba(0,229,255,0.35)] font-bold"
+                        : "bg-slate-900/90 text-slate-300 hover:text-cyan-200 hover:bg-slate-800 hover:border-cyan-400/60 border-slate-700/80 font-medium"
+                    }`}
+                    onClick={() => {
+                      if (!projectBBSData) handleLoadProjectBBS();
+                      else setViewMode("project");
+                    }}
+                  >
+                    Project Summary
+                  </button>
+                  <button
+                    type="button"
+                    style={{ borderRadius: "12px" }}
+                    className={`px-4 py-2 font-mono text-xs transition-all cursor-pointer border ${
+                      viewMode === "optimization"
+                        ? "bg-amber-500/25 text-amber-200 border-amber-400 shadow-[0_0_16px_rgba(245,158,11,0.35)] font-bold"
+                        : "bg-slate-900/90 text-slate-300 hover:text-amber-200 hover:bg-slate-800 hover:border-amber-400/60 border-slate-700/80 font-medium"
+                    }`}
+                    onClick={() => {
+                      if (!procurementData) handleLoadOptimization();
+                      else setViewMode("optimization");
+                    }}
+                  >
+                    12m Stock Optimizer
+                  </button>
+                </div>
+
+                <div className="h-6 w-[1px] bg-slate-800 hidden lg:block" />
+
+                {/* Distinct Export & Verification Actions */}
+                <div className="flex flex-wrap items-center gap-3">
+                  {viewMode === "member" ? (
+                    <button
+                      type="button"
+                      style={{ borderRadius: "12px" }}
+                      className="btn-secondary text-xs px-3.5 py-2 flex items-center gap-1.5 shadow-sm"
+                      onClick={handleExportBBS}
+                    >
+                      <span>📥</span> Export CSV
+                    </button>
+                  ) : viewMode === "project" ? (
+                    <button
+                      type="button"
+                      style={{ borderRadius: "12px" }}
+                      className="btn-secondary text-xs px-3.5 py-2 flex items-center gap-1.5 shadow-sm"
+                      onClick={handleExportProjectBBS}
+                      disabled={!projectBBSData}
+                    >
+                      <span>📥</span> Export Project CSV
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      style={{ borderRadius: "12px" }}
+                      className="btn-secondary text-xs px-3.5 py-2 flex items-center gap-1.5 shadow-sm"
+                      onClick={handleExportProcurementPO}
+                      disabled={!procurementData}
+                    >
+                      <span>📥</span> Export 12m Cut-List &amp; PO
+                    </button>
+                  )}
+
+                  {viewMode === "member" && (
+                    <button
+                      type="button"
+                      style={{
+                        borderRadius: "12px",
+                        borderColor: isSignedOff ? "#34d399" : undefined,
+                        color: isSignedOff ? "#34d399" : undefined,
+                      }}
+                      className="btn-secondary text-xs px-3.5 py-2 flex items-center gap-1.5"
+                      onClick={() => setShowModal(true)}
+                    >
+                      {isSignedOff ? "✓ QA Certified" : "Review & Verify"}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
