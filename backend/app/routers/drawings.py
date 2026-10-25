@@ -21,15 +21,24 @@ class IngestionResponse(BaseModel):
 
 @router.post("/extract", response_model=ExtractionResult)
 async def extract_drawing(file: UploadFile = File(...)) -> ExtractionResult:
-    """Extract page-cited text from a digitally generated PDF drawing or CSV schedule."""
+    """Extract page-cited text and structural parameters from PDF drawings, photos/images, or CSV schedules."""
     fname = (file.filename or "drawing.pdf").lower()
     is_pdf = file.content_type == "application/pdf" or fname.endswith(".pdf")
-    is_tabular = fname.endswith(".csv") or fname.endswith(".tsv") or fname.endswith(".txt") or file.content_type in ("text/csv", "text/tab-separated-values", "text/plain")
+    is_image = (
+        file.content_type in ("image/png", "image/jpeg", "image/jpg", "image/webp")
+        or any(fname.endswith(ext) for ext in (".png", ".jpg", ".jpeg", ".webp"))
+    )
+    is_tabular = (
+        fname.endswith(".csv")
+        or fname.endswith(".tsv")
+        or fname.endswith(".txt")
+        or file.content_type in ("text/csv", "text/tab-separated-values", "text/plain")
+    )
 
-    if not is_pdf and not is_tabular:
+    if not is_pdf and not is_tabular and not is_image:
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail="Supported formats: PDF engineering drawings or CSV/TSV structural bar schedules.",
+            detail="Supported formats: PDF engineering drawings, site photos/blueprints (.png, .jpg, .webp), or CSV/TSV schedules.",
         )
 
     contents = await file.read(MAX_FILE_SIZE_BYTES + 1)
@@ -37,19 +46,51 @@ async def extract_drawing(file: UploadFile = File(...)) -> ExtractionResult:
         raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="File must be 25 MB or smaller.")
 
     try:
-        if is_pdf:
-            extraction = extract_pdf(contents, file.filename or "drawing.pdf")
-        else:
-            text_str = contents.decode("utf-8", errors="replace")
-            extraction = parse_tabular_schedule(text_str, file.filename or "schedule.csv")
+        from app.ingestion.gemini import is_gemini_available, extract_with_gemini
+        extraction = None
+
+        # 1. Try Gemini Multimodal extraction if API key is present
+        if is_gemini_available():
+            try:
+                mime = file.content_type or ("application/pdf" if is_pdf else ("image/jpeg" if is_image else "text/plain"))
+                extraction = extract_with_gemini(contents, file.filename or "drawing", mime_type=mime)
+            except Exception as gemini_err:
+                import logging
+                logging.getLogger(__name__).warning("Gemini extraction fallback triggered: %s", gemini_err)
+
+        # 2. Deterministic Fallbacks
+        if extraction is None:
+            if is_pdf:
+                extraction = extract_pdf(contents, file.filename or "drawing.pdf")
+            elif is_tabular:
+                text_str = contents.decode("utf-8", errors="replace")
+                extraction = parse_tabular_schedule(text_str, file.filename or "schedule.csv")
+            elif is_image:
+                # Scanned image/photo without Gemini key
+                from app.ingestion.models import ExtractedChunk, ExtractionResult
+                extraction = ExtractionResult(
+                    file_name=file.filename or "photo.png",
+                    page_count=1,
+                    chunks=[
+                        ExtractedChunk(
+                            content=f"Image upload {file.filename} received. Please configure GEMINI_API_KEY in backend/.env for AI vision blueprint parsing.",
+                            page_number=1,
+                            chunk_index=0,
+                            source_reference=f"image:{file.filename}#page=1",
+                        )
+                    ],
+                    extracted_members=[],
+                )
 
         from app.rag.store import add_chunks
         add_chunks(extraction.chunks, drawing_id=file.filename or "uploaded-drawing")
         return extraction
+    except HTTPException:
+        raise
     except Exception as error:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="The drawing or schedule file could not be parsed.",
+            detail="The drawing, photo, or schedule file could not be parsed.",
         ) from error
 
 

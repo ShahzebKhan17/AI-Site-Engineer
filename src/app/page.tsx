@@ -13,6 +13,21 @@ type DrawingItem = {
   pages: number;
 };
 
+type ExtractedMemberData = {
+  member_id: string;
+  member_type: string;
+  dimensions: Record<string, number>;
+  main_bar_diameter_mm: number | null;
+  secondary_bar_diameter_mm: number | null;
+  spacing_mm: number | null;
+  concrete_grade: string;
+  steel_grade: string;
+  reinforcement_summary: string;
+  confidence: number;
+  citations: string[];
+  notes: string[];
+};
+
 type CalculationRow = {
   label: string;
   length_mm: number;
@@ -207,8 +222,12 @@ export default function Home() {
   // Interactive Derivation Inspector
   const [inspectItem, setInspectItem] = useState<InspectItemData | null>(null);
 
-  // Live Q&A and Drawing Ingestion States
+  // Live Q&A, AI Drawing Ingestion & Parameter Review States
   const [uploadedChunks, setUploadedChunks] = useState<any[]>([]);
+  const [extractedMembers, setExtractedMembers] = useState<ExtractedMemberData[]>([]);
+  const [reviewMember, setReviewMember] = useState<ExtractedMemberData | null>(null);
+  const [isReviewOpen, setIsReviewOpen] = useState(false);
+  const [isReviewSubmitting, setIsReviewSubmitting] = useState(false);
   const [aiAnswer, setAiAnswer] = useState<string | null>(null);
   const [evidenceSnippets, setEvidenceSnippets] = useState<Array<{ sheet: string; text: string }>>([]);
 
@@ -353,12 +372,13 @@ export default function Home() {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const isTabular = file.name.endsWith(".csv") || file.name.endsWith(".tsv") || file.name.endsWith(".txt");
+    const isImage = /\.(png|jpe?g|webp)$/i.test(file.name);
+    const isTabular = /\.(csv|tsv|txt)$/i.test(file.name);
     const newDrawing: DrawingItem = {
       name: file.name,
       size: `${(file.size / 1_000_000).toFixed(1)} MB`,
       status: "Processing",
-      revision: isTabular ? "Schedule" : "Rev 01",
+      revision: isImage ? "Site Photo" : isTabular ? "Schedule" : "Rev 01",
       pages: 1,
     };
     setDrawings((prev) => [newDrawing, ...prev]);
@@ -384,12 +404,21 @@ export default function Home() {
           }));
           setUploadedChunks((prev) => [...prev, ...formatted]);
         }
+
+        if (data.extracted_members && data.extracted_members.length > 0) {
+          setExtractedMembers((prev) => [...data.extracted_members, ...prev]);
+          setReviewMember(data.extracted_members[0]);
+          setIsReviewOpen(true);
+          triggerToast(`AI extracted ${data.extracted_members.length} member(s)! Ready for parameter audit.`);
+        } else {
+          triggerToast(`Indexed ${file.name} (${data.chunks?.length || 0} chunks) into memory store.`);
+        }
+
         setDrawings((prev) =>
           prev.map((d) =>
             d.name === file.name ? { ...d, status: "Indexed", pages: data.page_count || 1 } : d
           )
         );
-        triggerToast(`Indexed ${file.name} (${data.chunks?.length || 0} chunks) into memory store.`);
       } else {
         setDrawings((prev) =>
           prev.map((d) => (d.name === file.name ? { ...d, status: "Indexed" } : d))
@@ -403,6 +432,43 @@ export default function Home() {
       triggerToast(`Stored ${file.name} into offline sheet cache.`);
     }
     event.target.value = "";
+  }
+
+  async function handleCalculateReviewedMember() {
+    if (!reviewMember) return;
+    setIsReviewSubmitting(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/calculations/calculate-from-parameters`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(reviewMember),
+      });
+      if (res.ok) {
+        const calc = await res.json();
+        setActiveResult({
+          memberId: calc.member_id || reviewMember.member_id,
+          memberType: calc.member_type || reviewMember.member_type.toUpperCase(),
+          cuttingLengthM: calc.cutting_length_m,
+          cuttingLengthMm: calc.cutting_length_mm,
+          totalWeightKg: calc.total_weight_kg,
+          items: calc.items || [],
+          breakdown: calc.breakdown || [],
+          citations: calc.source_references || reviewMember.citations,
+          assumptions: calc.assumptions || [],
+          clauseProvisions: calc.is_code_provisions || {},
+          confidence: reviewMember.confidence,
+        });
+        setIsReviewOpen(false);
+        setViewMode("member");
+        triggerToast(`${reviewMember.member_type.toUpperCase()} ${reviewMember.member_id} calculated via deterministic IS 456 engine!`);
+      } else {
+        triggerToast("Calculation failed. Please verify reviewed dimensions.");
+      }
+    } catch {
+      triggerToast("Could not connect to calculation engine.");
+    } finally {
+      setIsReviewSubmitting(false);
+    }
   }
 
   async function handleExecuteQuery(queryString?: string) {
@@ -823,6 +889,241 @@ export default function Home() {
         </div>
       )}
 
+      {/* AI VISION / DRAWING EXTRACTED PARAMETER REVIEW MODAL */}
+      {isReviewOpen && reviewMember && (
+        <div className="modal-backdrop" onClick={() => setIsReviewOpen(false)}>
+          <div className="modal-card max-w-xl w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-start mb-4 pb-3 border-b border-slate-800">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono uppercase bg-cyan-500/20 text-cyan-300 px-2 py-0.5 rounded border border-cyan-500/40 font-bold">
+                    AI Multimodal Extraction
+                  </span>
+                  <span className="text-xs font-mono text-emerald-400">
+                    {(reviewMember.confidence * 100).toFixed(0)}% Confidence
+                  </span>
+                </div>
+                <h3 className="text-lg font-bold text-white mt-1">
+                  Parameter Audit: {reviewMember.member_id}
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Verify or edit extracted parameters from uploaded drawing/photo before running deterministic calculation.
+                </p>
+              </div>
+              <button
+                className="text-slate-400 hover:text-white text-lg p-1"
+                onClick={() => setIsReviewOpen(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 font-mono text-xs">
+              {/* Member Type & ID */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-slate-400 block mb-1">Member Identifier</label>
+                  <input
+                    type="text"
+                    value={reviewMember.member_id}
+                    onChange={(e) => setReviewMember({ ...reviewMember, member_id: e.target.value.toUpperCase() })}
+                    className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="text-slate-400 block mb-1">Structural Element Type</label>
+                  <select
+                    value={reviewMember.member_type.toLowerCase()}
+                    onChange={(e) => setReviewMember({ ...reviewMember, member_type: e.target.value })}
+                    className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white"
+                  >
+                    <option value="column">Column</option>
+                    <option value="beam">Beam</option>
+                    <option value="footing">Footing / Raft</option>
+                    <option value="slab">Slab</option>
+                    <option value="pile">Pile</option>
+                    <option value="pile_cap">Pile Cap</option>
+                    <option value="pier">Pier / Pedestal</option>
+                    <option value="staircase">Staircase</option>
+                    <option value="retaining_wall">Retaining Wall</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Dimensions */}
+              <div className="bg-slate-950/70 p-3 rounded-lg border border-slate-800 space-y-2">
+                <span className="text-[11px] font-bold text-slate-300 block uppercase tracking-wider">
+                  Geometric Dimensions (mm)
+                </span>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="text-slate-400 block mb-1 text-[11px]">Width (mm)</label>
+                    <input
+                      type="number"
+                      value={reviewMember.dimensions.width_mm || ""}
+                      onChange={(e) =>
+                        setReviewMember({
+                          ...reviewMember,
+                          dimensions: { ...reviewMember.dimensions, width_mm: parseFloat(e.target.value) || 0 },
+                        })
+                      }
+                      className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white"
+                      placeholder="e.g. 400"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-slate-400 block mb-1 text-[11px]">Depth/Thk (mm)</label>
+                    <input
+                      type="number"
+                      value={reviewMember.dimensions.depth_mm || ""}
+                      onChange={(e) =>
+                        setReviewMember({
+                          ...reviewMember,
+                          dimensions: { ...reviewMember.dimensions, depth_mm: parseFloat(e.target.value) || 0 },
+                        })
+                      }
+                      className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white"
+                      placeholder="e.g. 600"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-slate-400 block mb-1 text-[11px]">Height/Span (mm)</label>
+                    <input
+                      type="number"
+                      value={reviewMember.dimensions.storey_height_mm || reviewMember.dimensions.length_mm || ""}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value) || 0;
+                        setReviewMember({
+                          ...reviewMember,
+                          dimensions: {
+                            ...reviewMember.dimensions,
+                            storey_height_mm: val,
+                            length_mm: val,
+                          },
+                        });
+                      }}
+                      className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white"
+                      placeholder="e.g. 3200"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Reinforcement */}
+              <div className="bg-slate-950/70 p-3 rounded-lg border border-slate-800 space-y-2">
+                <span className="text-[11px] font-bold text-slate-300 block uppercase tracking-wider">
+                  Reinforcement Schedule (IS 456 &amp; SP 34)
+                </span>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="text-slate-400 block mb-1 text-[11px]">Main Bar Dia (mm)</label>
+                    <input
+                      type="number"
+                      value={reviewMember.main_bar_diameter_mm || ""}
+                      onChange={(e) =>
+                        setReviewMember({
+                          ...reviewMember,
+                          main_bar_diameter_mm: parseFloat(e.target.value) || 0,
+                        })
+                      }
+                      className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-bold"
+                      placeholder="e.g. 16"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-slate-400 block mb-1 text-[11px]">Secondary/Tie (mm)</label>
+                    <input
+                      type="number"
+                      value={reviewMember.secondary_bar_diameter_mm || ""}
+                      onChange={(e) =>
+                        setReviewMember({
+                          ...reviewMember,
+                          secondary_bar_diameter_mm: parseFloat(e.target.value) || 0,
+                        })
+                      }
+                      className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white"
+                      placeholder="e.g. 8"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-slate-400 block mb-1 text-[11px]">Spacing (mm)</label>
+                    <input
+                      type="number"
+                      value={reviewMember.spacing_mm || ""}
+                      onChange={(e) =>
+                        setReviewMember({
+                          ...reviewMember,
+                          spacing_mm: parseFloat(e.target.value) || 0,
+                        })
+                      }
+                      className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white"
+                      placeholder="e.g. 150"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Material Grades */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-slate-400 block mb-1">Concrete Grade</label>
+                  <select
+                    value={reviewMember.concrete_grade}
+                    onChange={(e) => setReviewMember({ ...reviewMember, concrete_grade: e.target.value })}
+                    className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white"
+                  >
+                    <option value="M20">M20 (IS 456)</option>
+                    <option value="M25">M25 (Standard)</option>
+                    <option value="M30">M30 (High Strength)</option>
+                    <option value="M35">M35 (Design Mix)</option>
+                    <option value="M40">M40 (Infrastructure)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-slate-400 block mb-1">Steel Grade</label>
+                  <select
+                    value={reviewMember.steel_grade}
+                    onChange={(e) => setReviewMember({ ...reviewMember, steel_grade: e.target.value })}
+                    className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white"
+                  >
+                    <option value="FE415">Fe 415 (IS 1786)</option>
+                    <option value="FE500">Fe 500 (Standard TMT)</option>
+                    <option value="FE550">Fe 550 (High Ductility)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Schedule note */}
+              {reviewMember.reinforcement_summary && (
+                <div className="p-2.5 rounded bg-cyan-950/30 border border-cyan-800/40 text-[11px] text-cyan-200">
+                  <span className="font-semibold text-cyan-400">Verbatim Drawing Note:</span>{" "}
+                  {reviewMember.reinforcement_summary}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-5 pt-3 border-t border-slate-800 flex justify-between items-center gap-3">
+              <button
+                type="button"
+                className="px-3 py-1.5 rounded text-xs font-mono text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                onClick={() => setIsReviewOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isReviewSubmitting}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold py-2 px-4 rounded-lg flex items-center gap-2 transition-all shadow-md hover:shadow-[0_0_20px_rgba(16,185,129,0.3)] cursor-pointer disabled:opacity-50"
+                onClick={handleCalculateReviewedMember}
+              >
+                <span>⚡</span>
+                <span>{isReviewSubmitting ? "Calculating..." : "Audit & Calculate BBS (Deterministic Engine)"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ENTERPRISE QA/QC AUDIT & CRYPTOGRAPHIC STAMP MODAL */}
       {showModal && (
         <div className="modal-backdrop" onClick={() => setShowModal(false)}>
@@ -1222,13 +1523,13 @@ export default function Home() {
 
             <div className="upload-dropzone" onClick={() => fileInputRef.current?.click()}>
               <div className="upload-icon">↑</div>
-              <p className="upload-text">Upload Drawing Sheet (PDF) or Schedule (CSV)</p>
-              <p className="upload-subtext">PDF vector drawings or CSV/TSV structural bar schedules (up to 25 MB)</p>
+              <p className="upload-text">Upload Drawing (PDF), Photo, or Schedule (CSV)</p>
+              <p className="upload-subtext">PDF vector drawings, site photos/blueprints (.png, .jpg), or CSV/TSV schedules (up to 25 MB)</p>
             </div>
             <input
               ref={fileInputRef}
               type="file"
-              accept=".pdf,.csv,.tsv,.txt"
+              accept=".pdf,.csv,.tsv,.txt,.png,.jpg,.jpeg,.webp"
               style={{ display: "none" }}
               onChange={handleFileUpload}
             />
@@ -1237,7 +1538,7 @@ export default function Home() {
               {drawings.length === 0 ? (
                 <div className="py-6 text-center text-slate-500 font-mono text-xs border border-dashed border-slate-800 rounded-lg my-2">
                   No drawing sheets indexed yet.<br />
-                  Upload a PDF drawing or bar schedule CSV to begin.
+                  Upload a PDF drawing, photo/blueprint, or bar schedule CSV to begin.
                 </div>
               ) : (
                 drawings.map((dwg, idx) => (
@@ -1255,6 +1556,47 @@ export default function Home() {
                 ))
               )}
             </div>
+
+            {/* AI Extracted Structural Parameters Section */}
+            {extractedMembers.length > 0 && (
+              <div className="mt-4 pt-3 border-t border-slate-800">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-mono font-semibold text-cyan-400 flex items-center gap-1.5">
+                    <span className="inline-block w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+                    Extracted Parameters ({extractedMembers.length})
+                  </span>
+                  <span className="text-[10px] font-mono text-slate-400 bg-slate-800/80 px-1.5 py-0.5 rounded border border-slate-700">
+                    QA Review Ready
+                  </span>
+                </div>
+                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                  {extractedMembers.map((m, idx) => (
+                    <div
+                      key={`${m.member_id}-${idx}`}
+                      className="p-2.5 rounded-lg border border-cyan-500/30 bg-cyan-950/20 hover:bg-cyan-950/40 hover:border-cyan-400/60 transition-all cursor-pointer text-xs font-mono"
+                      onClick={() => {
+                        setReviewMember(m);
+                        setIsReviewOpen(true);
+                      }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-white text-sm">{m.member_id}</span>
+                        <span className="px-1.5 py-0.5 rounded bg-slate-800 text-cyan-300 text-[10px] uppercase font-bold border border-cyan-500/20">
+                          {m.member_type}
+                        </span>
+                      </div>
+                      <div className="text-slate-400 text-[11px] mt-1 truncate">
+                        {m.reinforcement_summary || `${m.main_bar_diameter_mm ? `Dia ${m.main_bar_diameter_mm}mm` : ''} ${m.spacing_mm ? `@ ${m.spacing_mm} c/c` : ''}`}
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] text-slate-500 mt-1.5 pt-1 border-t border-slate-800/60">
+                        <span>{m.concrete_grade} · {m.steel_grade}</span>
+                        <span className="text-cyan-400 hover:underline flex items-center gap-1">Review &amp; Calc ➔</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="mt-4 pt-4 border-t border-slate-800 space-y-2.5">
               <button
