@@ -17,6 +17,7 @@ type ExtractedMemberData = {
   member_id: string;
   member_type: string;
   dimensions: Record<string, number>;
+  num_bars?: number | null;
   main_bar_diameter_mm: number | null;
   secondary_bar_diameter_mm: number | null;
   spacing_mm: number | null;
@@ -536,7 +537,7 @@ export default function Home() {
     }
   }
 
-  async function handleLoadProjectBBS() {
+  async function handleLoadProjectBBS(forceDemo: boolean = false) {
     setIsProjectLoading(true);
     setViewMode("project");
     try {
@@ -544,14 +545,23 @@ export default function Home() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          project_id: projectName,
-          candidate_chunks_cache: uploadedChunks.length > 0 ? uploadedChunks : undefined,
+          project_id: forceDemo ? "Sample 9-Member Reference Project" : projectName,
+          candidate_chunks_cache: (!forceDemo && uploadedChunks.length > 0) ? uploadedChunks : undefined,
+          allow_demo_fallback: forceDemo,
         }),
       });
       if (res.ok) {
         const data = await res.json();
         setProjectBBSData(data);
-        triggerToast(`Consolidated Project BBS ready: ${data.total_members_count} members · ${data.total_steel_tonnes} tonnes steel.`);
+        if (data.total_members_count > 0) {
+          triggerToast(
+            forceDemo
+              ? `Loaded Reference Demo Project: ${data.total_members_count} members · ${data.total_steel_tonnes} tonnes steel.`
+              : `Consolidated Project BBS ready: ${data.total_members_count} member(s) · ${data.total_steel_tonnes} tonnes steel.`
+          );
+        } else {
+          triggerToast("Scan complete: No structural schedules or members detected in drawing.");
+        }
       } else {
         triggerToast("Failed to compile project BBS from drawing sheets.");
       }
@@ -562,7 +572,7 @@ export default function Home() {
     }
   }
 
-  async function handleLoadOptimization() {
+  async function handleLoadOptimization(forceDemo: boolean = false) {
     setIsOptimizationLoading(true);
     setViewMode("optimization");
     try {
@@ -570,14 +580,19 @@ export default function Home() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          project_id: projectName,
-          candidate_chunks_cache: uploadedChunks.length > 0 ? uploadedChunks : undefined,
+          project_id: forceDemo ? "Sample 9-Member Reference Project" : projectName,
+          candidate_chunks_cache: (!forceDemo && uploadedChunks.length > 0) ? uploadedChunks : undefined,
+          allow_demo_fallback: forceDemo,
         }),
       });
       if (res.ok) {
         const data = await res.json();
         setProcurementData(data);
-        triggerToast(`12m Stock Optimization: ${data.total_stock_bars_12m} stock bars required · ${data.overall_wastage_percentage}% scrap.`);
+        if (data.total_stock_bars_12m > 0) {
+          triggerToast(`12m Stock Optimization: ${data.total_stock_bars_12m} stock bars required · ${data.overall_wastage_percentage}% scrap.`);
+        } else {
+          triggerToast("Cutting stock optimization: 0 items to optimize.");
+        }
       } else {
         triggerToast("Failed to run cutting stock optimization.");
       }
@@ -796,7 +811,7 @@ export default function Home() {
                       Cutting Length = Base Span/Height + End Embedments + Hooks - Bend Deductions
                     </div>
                     <div className="text-xs text-slate-300 space-y-1">
-                      <div>• <strong>IS 456:2000 Clause 26.2.1:</strong> Development Length Ld = (phi * 0.87 * fy) / (4 * tau_bd)</div>
+                      <div>• <strong>IS 456:2000 Clause 26.2.1:</strong> Development Length Ld = (ϕ · 0.87 · fy) / (4 · τbd)</div>
                       <div>• <strong>SP 34:1987 Clause 3.2 &amp; IS 2502:</strong> 90° bend elongation deduction = -2d ({2 * inspectItem.diameter} mm)</div>
                     </div>
                   </div>
@@ -1014,7 +1029,24 @@ export default function Home() {
                 <span className="text-[11px] font-bold text-slate-300 block uppercase tracking-wider">
                   Reinforcement Schedule (IS 456 &amp; SP 34)
                 </span>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-4 gap-2">
+                  <div>
+                    <label className="text-slate-400 block mb-1 text-[11px]">No. of Bars</label>
+                    <input
+                      type="number"
+                      value={reviewMember.num_bars || reviewMember.dimensions?.num_bars || ""}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value) || 0;
+                        setReviewMember({
+                          ...reviewMember,
+                          num_bars: val,
+                          dimensions: { ...reviewMember.dimensions, num_bars: val },
+                        });
+                      }}
+                      className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-bold"
+                      placeholder="e.g. 8"
+                    />
+                  </div>
                   <div>
                     <label className="text-slate-400 block mb-1 text-[11px]">Main Bar Dia (mm)</label>
                     <input
@@ -1602,7 +1634,7 @@ export default function Home() {
               <button
                 type="button"
                 className="w-full bg-cyan-950/70 hover:bg-cyan-900 border border-cyan-500/40 hover:border-cyan-400 text-cyan-200 font-mono text-xs py-2.5 px-3 rounded-lg flex items-center justify-center gap-2 transition-all shadow-sm hover:shadow-[0_0_15px_rgba(0,229,255,0.2)] cursor-pointer"
-                onClick={handleLoadProjectBBS}
+                onClick={() => handleLoadProjectBBS()}
                 disabled={isProjectLoading}
               >
                 <span>📊</span>
@@ -1612,7 +1644,7 @@ export default function Home() {
               <button
                 type="button"
                 className="w-full bg-slate-900/90 hover:bg-slate-850 border border-slate-700 hover:border-amber-500/50 text-amber-300 font-mono text-xs py-2.5 px-3 rounded-lg flex items-center justify-center gap-2 transition-all shadow-sm hover:shadow-[0_0_15px_rgba(245,158,11,0.2)] cursor-pointer"
-                onClick={handleLoadOptimization}
+                onClick={() => handleLoadOptimization()}
                 disabled={isOptimizationLoading}
               >
                 <span>✂️</span>
@@ -2057,8 +2089,83 @@ export default function Home() {
                     <p className="font-mono text-xs text-cyan-400">ANALYZING ALL DRAWING SHEETS &amp; COMPILING STEEL PROCUREMENT SCHEDULE...</p>
                   </div>
                 ) : projectBBSData ? (
-                  <>
-                    <div className="result-hero-metric">
+                  projectBBSData.items.length === 0 ? (
+                    <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-8 text-center space-y-4 max-w-2xl mx-auto my-6">
+                      <div className="w-14 h-14 bg-amber-500/10 border border-amber-500/30 rounded-full flex items-center justify-center mx-auto text-2xl">
+                        ⚠️
+                      </div>
+                      <div className="space-y-1">
+                        <h3 className="text-base font-bold text-slate-100 font-mono tracking-wide">
+                          NO STRUCTURAL SCHEDULES OR MEMBERS IDENTIFIED
+                        </h3>
+                        <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
+                          We scanned your active drawing sheets, but could not detect recognizable bar schedules or structural member IDs (e.g. C-01, B-02, 8-T16).
+                        </p>
+                      </div>
+
+                      <div className="bg-slate-900/60 border border-slate-800/80 rounded-lg p-3 text-left text-xs font-mono text-slate-300 space-y-1.5 max-w-lg mx-auto">
+                        <div className="text-cyan-400 font-bold text-[0.7rem] uppercase tracking-wider">Troubleshooting &amp; Next Steps:</div>
+                        <div className="flex items-start gap-2">
+                          <span className="text-amber-400">•</span>
+                          <span>If uploading a scanned drawing or photo, ensure high contrast and clear bar text.</span>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <span className="text-amber-400">•</span>
+                          <span>You can enter dimensions &amp; rebar details manually with <strong>Audit Member</strong>.</span>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <span className="text-amber-400">•</span>
+                          <span>To explore full multi-member BBS features, load our <strong>9-Member Reference Project</strong>.</span>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReviewMember({
+                              member_id: "C-01",
+                              member_type: "column",
+                              dimensions: { clear_height_mm: 3000, footing_embedment_mm: 0, bend_allowance_mm: 300 },
+                              num_bars: 8,
+                              main_bar_diameter_mm: 16,
+                              secondary_bar_diameter_mm: 8,
+                              spacing_mm: 150,
+                              concrete_grade: "M25",
+                              steel_grade: "Fe500",
+                              reinforcement_summary: "8 bars Ø16 mm (Fe500), ties Ø8 mm @ 150 mm c/c",
+                              confidence: 1.0,
+                              citations: ["Manual Audit Specification"],
+                              notes: ["Entered manually via Zero-State Audit"],
+                            });
+                            setIsReviewOpen(true);
+                          }}
+                          className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold text-xs rounded-lg transition shadow-lg shadow-cyan-950/50 flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <span>➕</span> Add Member Manually
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleLoadProjectBBS(true)}
+                          className="px-4 py-2 bg-slate-900 hover:bg-slate-850 border border-slate-700 hover:border-cyan-500/50 text-cyan-300 text-xs rounded-lg transition font-mono flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <span>🧪</span> Load 9-Member Reference Demo
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      {projectBBSData.project_id.includes("Reference Project") && (
+                        <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2 flex items-center justify-between text-xs font-mono text-amber-300 mb-2">
+                          <div className="flex items-center gap-2">
+                            <span>🧪</span>
+                            <span><strong>DEMO REFERENCE PROJECT</strong> · Displaying 9 standard baseline members (IS 456 / SP 34).</span>
+                          </div>
+                          <span className="text-[0.65rem] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded font-bold uppercase tracking-wider">Demo Mode</span>
+                        </div>
+                      )}
+                      <div className="result-hero-metric">
                       <div>
                         <span className="metric-label">PROJECT STEEL PROCUREMENT TOTAL · {projectBBSData.project_id}</span>
                         <div className="metric-value">
@@ -2219,7 +2326,7 @@ export default function Home() {
                       </table>
                     </div>
                   </>
-                ) : (
+                )) : (
                   <div className="text-center py-12 text-slate-400 border border-dashed border-slate-800 rounded-lg">
                     <p className="font-mono text-xs text-cyan-400">NO PROJECT BBS COMPILED YET</p>
                     <p className="text-sm mt-1">Click "Compile Consolidated Project BBS" on the left to aggregate all drawing members.</p>
@@ -2237,9 +2344,42 @@ export default function Home() {
                     <p className="font-mono text-xs text-amber-300">SOLVING 1D CUTTING STOCK PROBLEM &amp; PACKING 12M STOCK BARS...</p>
                   </div>
                 ) : procurementData ? (
-                  <>
-                    {/* Procurement Hero Summary */}
-                    <div className="result-hero-metric" style={{ borderColor: "rgba(245, 158, 11, 0.4)" }}>
+                  procurementData.total_stock_bars_12m === 0 ? (
+                    <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-8 text-center space-y-4 max-w-2xl mx-auto my-6">
+                      <div className="w-14 h-14 bg-amber-500/10 border border-amber-500/30 rounded-full flex items-center justify-center mx-auto text-2xl">
+                        ✂️
+                      </div>
+                      <div className="space-y-1">
+                        <h3 className="text-base font-bold text-slate-100 font-mono tracking-wide">
+                          NO REBAR ITEMS TO OPTIMIZE
+                        </h3>
+                        <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
+                          The cutting stock optimizer requires active structural member cutting lengths from your drawings to pack into standard 12.0m commercial stock bars.
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => handleLoadOptimization(true)}
+                          className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold text-xs rounded-lg transition font-mono flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <span>🧪</span> Run Optimizer on 9-Member Demo
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      {procurementData.project_id.includes("Reference Project") && (
+                        <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2 flex items-center justify-between text-xs font-mono text-amber-300 mb-2">
+                          <div className="flex items-center gap-2">
+                            <span>🧪</span>
+                            <span><strong>DEMO REFERENCE OPTIMIZATION</strong> · 1D cutting stock packing calculated on baseline project members.</span>
+                          </div>
+                          <span className="text-[0.65rem] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded font-bold uppercase tracking-wider">Demo Mode</span>
+                        </div>
+                      )}
+                      {/* Procurement Hero Summary */}
+                      <div className="result-hero-metric" style={{ borderColor: "rgba(245, 158, 11, 0.4)" }}>
                       <div>
                         <span className="metric-label text-amber-300">STANDARD 12.0M COMMERCIAL STOCK REQUISITION</span>
                         <div className="metric-value text-amber-400">
@@ -2336,7 +2476,7 @@ export default function Home() {
                       ))}
                     </div>
                   </>
-                ) : (
+                )) : (
                   <div className="text-center py-12 text-slate-400 border border-dashed border-slate-800 rounded-lg">
                     <p className="font-mono text-xs text-amber-400">NO 12M CUTTING OPTIMIZATION RUN YET</p>
                     <p className="text-sm mt-1">Click "12m Stock Bar 1D Cutting Optimizer" on the left to pack cuts into standard commercial lengths.</p>

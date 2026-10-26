@@ -595,6 +595,20 @@ def regex_extract_drawing_dimensions(
             missing.append("bar_diameter_mm")
             notes.append("Bar diameter not explicitly found in drawing text.")
 
+        # Longitudinal bar count (e.g. "8 bars Ø16 mm", "8-T16", "4-T16", "6 bars")
+        num_bars_match = re.search(
+            r"(\d+)\s*(?:bars?\s*(?:of|dia)?\s*)?(?:Y|T|TOR|#|dia|Ø)\s*(?:8|10|12|16|20|25|28|32|36|40)\b|"
+            r"(\d+)\s*[-]?\s*(?:Y|T|TOR|#|dia|Ø)\s*(?:8|10|12|16|20|25|28|32|36|40)\b|"
+            r"(?:longitudinal\s*(?:reinforcement|rebar)?|main\s*(?:reinforcement|rebar)?)\s*[:=]?\s*(\d+)\s*bars?",
+            text,
+            re.IGNORECASE,
+        )
+        col_num_bars = 4
+        if num_bars_match:
+            n_raw = num_bars_match.group(1) or num_bars_match.group(2) or num_bars_match.group(3)
+            if n_raw:
+                col_num_bars = int(n_raw)
+
         # Storey height extraction
         h_match = re.search(r"(?:storey|floor|clear)?\s*height\s*(?:is|=|:)?\s*(\d{3,5})\s*mm", text, re.IGNORECASE)
         h_val: float | None = None
@@ -613,18 +627,50 @@ def regex_extract_drawing_dimensions(
         col_w = float(col_dims.group(1)) if col_dims else None
         col_d = float(col_dims.group(2)) if col_dims else None
 
-        foot_match = re.search(r"(?:footing|foundation|embedment)\s*(?:depth|embedment)?\s*(?:is|=|:)?\s*(\d{3,4})\s*mm", text, re.IGNORECASE)
-        foot_mm = float(foot_match.group(1)) if foot_match else 0.0
+        # Footing embedment: ONLY if explicitly stated in drawing text
+        foot_match = re.search(
+            r"(?:footing|foundation)\s*(?:depth|embedment)?\s*(?:is|=|:)?\s*(\d{3,4})\s*mm|"
+            r"(?:embedment\s*(?:depth|into\s*footing)?)\s*(?:is|=|:)?\s*(\d{3,4})\s*mm",
+            text,
+            re.IGNORECASE,
+        )
+        foot_mm = float(foot_match.group(1) or foot_match.group(2)) if foot_match else 0.0
+
+        # Bend allowance: parse explicit mm, multiplier (e.g. 20d, 20 times the dia), or default to +300 mm
+        bend_allowance_val = 0.0
+        bend_factor_match = re.search(
+            r"(?:bend\s*(?:allowance)?|hook)\s*(?:is|=|:)?\s*(\d+(?:\.\d+)?)\s*(?:times\s*(?:the\s*)?)?(?:dia|d\b|bar\s*dia)",
+            text,
+            re.IGNORECASE,
+        )
+        bend_mm_match = re.search(
+            r"(?:bend\s*(?:allowance)?|hook)\s*(?:is|=|:)?\s*(\d{2,4})\s*mm",
+            text,
+            re.IGNORECASE,
+        )
+        if bend_factor_match and col_dia:
+            bend_allowance_val = float(bend_factor_match.group(1)) * col_dia
+        elif bend_mm_match:
+            bend_allowance_val = float(bend_mm_match.group(1))
+        else:
+            # Default to +300 mm if nothing is mentioned in drawing
+            bend_allowance_val = 300.0
+
+        # Lap requirement: only if explicitly specified or if total length exceeds 12m
+        has_lap = bool(re.search(r"\blap\b", text, re.IGNORECASE))
 
         if col_dia and h_val:
             col_req = ColumnBarRequest(
                 member_id=target_member_id,
                 bar_diameter_mm=col_dia,
+                num_bars=col_num_bars,
                 storey_height_mm=h_val,
                 column_width_mm=col_w,
                 column_depth_mm=col_d,
                 footing_embedment_mm=foot_mm,
                 top_extension_mm=0.0,
+                bend_allowance_mm=bend_allowance_val,
+                has_lap_splice=has_lap,
                 concrete_grade=concrete_grade,
                 steel_grade=steel_grade,
                 source_references=citations_list,

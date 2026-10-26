@@ -23,32 +23,40 @@ def calculate_longitudinal_bar(request: ColumnBarRequest) -> ColumnBarResult:
     bend_deduction_mm = 0.0
 
     if request.use_is_code_rules:
-        # Resolve lap length if not explicitly provided
+        # Resolve lap length: commercial stock bar length is 12.0m (12000 mm).
+        # Lap length is added if bar exceeds 12.0m, if column has footing starter embedment, or if explicitly requested.
+        total_lift_mm = request.storey_height_mm + request.footing_embedment_mm + request.top_extension_mm
         if lap_length_mm <= 0:
-            lap_result = calculate_column_lap_length(
-                bar_diameter_mm=request.bar_diameter_mm,
-                concrete_grade=request.concrete_grade,
-                steel_grade=request.steel_grade,
-            )
-            lap_length_mm = lap_result.lap_length_mm
-            assumptions.append(
-                f"Lap length calculated as {lap_length_mm} mm ({lap_result.lap_length_factor}d) per {lap_result.clause_reference}."
-            )
-            is_code_provisions["lap_length_mm"] = lap_length_mm
-            is_code_provisions["lap_code_clause"] = lap_result.clause_reference
+            if request.has_lap_splice or request.footing_embedment_mm > 0 or total_lift_mm > 12000.0:
+                lap_result = calculate_column_lap_length(
+                    bar_diameter_mm=request.bar_diameter_mm,
+                    concrete_grade=request.concrete_grade,
+                    steel_grade=request.steel_grade,
+                )
+                lap_length_mm = lap_result.lap_length_mm
+                assumptions.append(
+                    f"Lap length calculated as {lap_length_mm} mm ({lap_result.lap_length_factor}d) per {lap_result.clause_reference}."
+                )
+                is_code_provisions["lap_length_mm"] = lap_length_mm
+                is_code_provisions["lap_code_clause"] = lap_result.clause_reference
+            else:
+                lap_length_mm = 0.0
+                assumptions.append("No lap splice required: total length <= 12.0m commercial stock bar length and no starter lap specified.")
         else:
             assumptions.append(f"Explicit lap length of {lap_length_mm} mm provided from drawing schedule.")
 
-        # Resolve footing bend allowance if footing embedment is present but bend allowance is missing
-        if bend_allowance_mm <= 0 and request.footing_embedment_mm > 0:
-            # Standard 90-degree footing horizontal leg (min 300 mm or 16d)
+        # Resolve bend allowance: if nothing is specified in drawing, default is +300 mm
+        if bend_allowance_mm <= 0:
             bend_allowance_mm = max(300.0, round(16.0 * request.bar_diameter_mm, 1))
             assumptions.append(
-                f"Footing 90-deg bend leg calculated as {bend_allowance_mm} mm per SP 34 standard detailing."
+                f"Bend allowance calculated as {bend_allowance_mm} mm (min 300 mm standard detailing) as none was specified."
             )
             is_code_provisions["footing_bend_allowance_mm"] = bend_allowance_mm
+        else:
+            assumptions.append(f"Bend allowance of {bend_allowance_mm} mm applied from drawing specification.")
+            is_code_provisions["footing_bend_allowance_mm"] = bend_allowance_mm
 
-        # Calculate bend deduction if requested
+        # Calculate bend deduction (1D for 45°, 2D for 90°, 3D for 135°, 4D for 180°)
         if request.deduct_bends and bend_allowance_mm > 0:
             deduction_result = calculate_bend_deduction(request.bar_diameter_mm, angle_degrees=90.0)
             bend_deduction_mm = deduction_result.deduction_mm
@@ -64,12 +72,14 @@ def calculate_longitudinal_bar(request: ColumnBarRequest) -> ColumnBarResult:
 
     breakdown = [
         CalculationBreakdown(label="Storey height", length_mm=request.storey_height_mm),
-        CalculationBreakdown(label="Footing embedment", length_mm=request.footing_embedment_mm),
-        CalculationBreakdown(label="Top extension", length_mm=request.top_extension_mm),
-        CalculationBreakdown(label="Bend allowance", length_mm=bend_allowance_mm),
-        CalculationBreakdown(label="Lap length", length_mm=lap_length_mm),
     ]
-
+    if request.footing_embedment_mm > 0:
+        breakdown.append(CalculationBreakdown(label="Footing embedment", length_mm=request.footing_embedment_mm))
+    breakdown.append(CalculationBreakdown(label="Top extension", length_mm=request.top_extension_mm))
+    if bend_allowance_mm > 0:
+        breakdown.append(CalculationBreakdown(label="Bend allowance", length_mm=bend_allowance_mm))
+    if lap_length_mm > 0:
+        breakdown.append(CalculationBreakdown(label="Lap length", length_mm=lap_length_mm))
     if bend_deduction_mm > 0:
         breakdown.append(CalculationBreakdown(label="Bend deduction (90 deg)", length_mm=-bend_deduction_mm))
 
@@ -87,4 +97,6 @@ def calculate_longitudinal_bar(request: ColumnBarRequest) -> ColumnBarResult:
         is_code_provisions=is_code_provisions if request.use_is_code_rules else None,
         concrete_volume_m3=c_vol,
         concrete_grade=request.concrete_grade,
+        num_bars=request.num_bars,
+        bar_diameter_mm=request.bar_diameter_mm,
     )

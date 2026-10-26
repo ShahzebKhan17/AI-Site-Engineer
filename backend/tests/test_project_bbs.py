@@ -3,7 +3,7 @@ from app.engineering.project_bbs import generate_consolidated_project_bbs
 
 
 def test_consolidated_project_bbs_generates_all_members_and_tonnage() -> None:
-    res = generate_consolidated_project_bbs(chunks=None, project_id="Test G+8 Project")
+    res = generate_consolidated_project_bbs(chunks=None, project_id="Test G+8 Project", allow_demo_fallback=True)
 
     assert res.project_id == "Test G+8 Project"
     assert res.total_members_count >= 8  # Columns, beams, footings, slabs, piles, pile caps, stairs, piers, retaining walls
@@ -25,3 +25,12 @@ def test_consolidated_project_bbs_generates_all_members_and_tonnage() -> None:
     assert sample_item.unit_weight_kg_m > 0
     assert sample_item.total_weight_kg > 0
     assert len(sample_item.breakdown) > 0
+
+
+def test_consolidated_project_bbs_zero_state_without_demo_fallback() -> None:
+    res = generate_consolidated_project_bbs(chunks=[], project_id="Empty Project", allow_demo_fallback=False)
+    assert res.total_members_count == 0
+    assert res.total_steel_kg == 0.0
+    assert res.total_steel_tonnes == 0.0
+    assert len(res.items) == 0
+    assert len(res.diameter_summaries) == 0

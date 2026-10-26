@@ -27,9 +27,15 @@ from app.rag.store import get_all_chunks
 def generate_consolidated_project_bbs(
     chunks: list[dict[str, Any]] | None = None,
     project_id: str = "Structural Project",
+    allow_demo_fallback: bool = False,
 ) -> ProjectBBSResponse:
     """Scan all project drawing chunks, calculate BBS for each structural member, and aggregate steel tonnage by diameter."""
-    all_chunks_raw = chunks if chunks and len(chunks) > 0 else get_all_chunks()
+    if chunks and len(chunks) > 0:
+        all_chunks_raw = chunks
+    elif allow_demo_fallback:
+        all_chunks_raw = get_all_chunks()
+    else:
+        all_chunks_raw = []
 
     # Convert raw chunk dicts into RetrievedChunk models
     retrieved_chunks: list[RetrievedChunk] = []
@@ -57,8 +63,8 @@ def generate_consolidated_project_bbs(
         if ecode and ecode != "GENERAL":
             entity_to_chunks[ecode.upper().strip()].append(rc)
 
-    # Fallback to standard baseline members if none explicitly tagged
-    if not entity_to_chunks:
+    # Fallback to standard baseline members ONLY if explicitly allowed (e.g. Demo Mode)
+    if not entity_to_chunks and allow_demo_fallback:
         default_members = ["C12", "B4", "F1", "S1", "P1", "PC1", "ST1", "PR1", "RW1"]
         for m in default_members:
             entity_to_chunks[m] = retrieved_chunks

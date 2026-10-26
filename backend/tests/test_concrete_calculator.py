@@ -188,7 +188,7 @@ def test_answer_generator_synthesizes_concrete_report() -> None:
 
 
 def test_project_bbs_aggregates_concrete_totals() -> None:
-    res = generate_consolidated_project_bbs()
+    res = generate_consolidated_project_bbs(allow_demo_fallback=True)
     assert res.total_concrete_volume_m3 > 0
     assert res.total_dry_volume_m3 > 0
     assert res.total_cement_bags > 0

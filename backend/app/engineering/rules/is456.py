@@ -86,7 +86,7 @@ class DevelopmentLengthResult(BaseModel):
     development_length_mm: float
     development_length_factor: float
     code_clause: str = "IS 456:2000 Cl. 26.2.1"
-    formula: str = "Ld = (phi * sigma_s) / (4 * tau_bd)"
+    formula: str = "Ld = (ϕ * sigma_s) / (4 * tau_bd)"
 
 
 def get_design_bond_stress(
@@ -127,9 +127,9 @@ def calculate_development_length(
     """Calculate development length Ld per IS 456:2000 Clause 26.2.1.
 
     Formula:
-        Ld = (phi * sigma_s) / (4 * tau_bd)
+        Ld = (ϕ * sigma_s) / (4 * tau_bd)
         where:
-          phi = bar diameter (mm)
+          ϕ = bar diameter (mm)
           sigma_s = 0.87 * f_y (design yield stress in bar)
           tau_bd = design bond stress in N/mm²
     """

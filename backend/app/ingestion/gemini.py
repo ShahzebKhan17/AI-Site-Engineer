@@ -45,13 +45,16 @@ Analyze the attached structural drawing/document carefully and extract:
 3. For each member, extract the exact physical dimensions and reinforcement schedule:
    - member_id: e.g. "C12", "B4", "RAFT", "F1", "S1"
    - member_type: one of ["column", "beam", "footing", "slab", "pile", "pile_cap", "pier", "staircase", "retaining_wall"]
-   - dimensions: numeric values in millimeters (mm) where visible (e.g. width_mm, depth_mm, length_mm, storey_height_mm, thickness_mm, embedment_mm)
+   - num_bars: total count of primary longitudinal/mesh bars (e.g. 8 for "8 bars Ø16 mm", 4 for "4-T16")
+   - dimensions: numeric values in millimeters (mm) where visible (e.g. width_mm, depth_mm, length_mm, storey_height_mm, thickness_mm)
+   - footing_embedment_mm: embedment into footing or foundation in mm ONLY if explicitly shown or stated, else 0.0
+   - bend_allowance_mm: bend or hook allowance in mm if specified (e.g. 20d or explicit mm), or 300.0 if not specified
    - main_bar_diameter_mm: primary longitudinal/mesh rebar diameter (e.g. 16, 20, 25, 32)
    - secondary_bar_diameter_mm: secondary/stirrup/tie/distribution rebar diameter (e.g. 8, 10)
    - spacing_mm: center-to-center spacing in mm if applicable (e.g. 150, 200)
    - concrete_grade: e.g. "M25", "M30", "M35", "M40" (default "M25" if not specified)
    - steel_grade: e.g. "FE415", "FE500", "FE550" (default "FE500" if not specified)
-   - reinforcement_summary: verbatim string from drawing (e.g. "4-T16 + 4-T20", "Y16 @ 150 c/c Bottom Mesh", "T8 @ 175 c/c links")
+   - reinforcement_summary: verbatim string from drawing (e.g. "8 bars Ø16 mm", "4-T16 + 4-T20", "Y16 @ 150 c/c Bottom Mesh")
    - confidence: float between 0.0 and 1.0 representing extraction certainty
    - citations: list of drawing sheet / page / section references (e.g. ["Sheet S-02", "Column Schedule Table"])
    - notes: list of important notes or warnings (e.g. lap location, cover requirements)
@@ -64,26 +67,28 @@ Respond strictly in valid JSON matching this exact structure:
       "content": "verbatim text chunk describing the section or schedule",
       "page_number": 1,
       "source_reference": "Sheet 1 / Section A",
-      "entity_code": "C12",
+      "entity_code": "C-01",
       "entity_type": "column"
     }
   ],
   "extracted_members": [
     {
-      "member_id": "C12",
+      "member_id": "C-01",
       "member_type": "column",
+      "num_bars": 8,
       "dimensions": {
-        "width_mm": 400.0,
-        "depth_mm": 600.0,
-        "storey_height_mm": 3200.0,
-        "footing_embedment_mm": 500.0
+        "width_mm": 300.0,
+        "depth_mm": 450.0,
+        "storey_height_mm": 3000.0,
+        "footing_embedment_mm": 0.0,
+        "bend_allowance_mm": 300.0
       },
       "main_bar_diameter_mm": 16.0,
       "secondary_bar_diameter_mm": 8.0,
       "spacing_mm": 150.0,
       "concrete_grade": "M25",
       "steel_grade": "FE500",
-      "reinforcement_summary": "4-T16 longitudinal bars, 8mm ties @ 150 c/c",
+      "reinforcement_summary": "8 bars Ø16 mm, 8mm ties @ 150 c/c",
       "confidence": 0.98,
       "citations": ["Page 1: Column Schedule"],
       "notes": ["Clear cover 40mm specified"]
@@ -238,6 +243,26 @@ def _parse_gemini_json_response(raw_text: str, file_name: str) -> ExtractionResu
         mtype = str(m.get("member_type", "column")).strip().lower()
         dims = {k: float(v) for k, v in m.get("dimensions", {}).items() if v is not None and isinstance(v, (int, float))}
         
+        # Parse or infer num_bars (e.g. from num_bars field or "8 bars Ø16 mm")
+        reinf_str = str(m.get("reinforcement_summary", ""))
+        num_bars_val = m.get("num_bars") or dims.get("num_bars") or dims.get("num_main_bars")
+        if num_bars_val is None and reinf_str:
+            nb_match = re.search(r"(\d+)\s*(?:bars?\s*(?:of|dia)?\s*)?(?:Y|T|TOR|#|dia|Ø)\s*\d+|(\d+)\s*[-]?\s*(?:Y|T|TOR|#|dia|Ø)\s*\d+|(\d+)\s*bars?", reinf_str, re.IGNORECASE)
+            if nb_match:
+                n_raw = nb_match.group(1) or nb_match.group(2) or nb_match.group(3)
+                num_bars_val = int(n_raw) if n_raw else None
+        
+        parsed_num_bars = int(num_bars_val) if num_bars_val is not None else (8 if "8" in reinf_str else 4)
+        dims["num_bars"] = parsed_num_bars
+
+        # Default footing embedment to 0.0 if not explicitly supplied
+        if "footing_embedment_mm" not in dims:
+            dims["footing_embedment_mm"] = 0.0
+
+        # Default bend allowance to 300.0 if not explicitly supplied
+        if "bend_allowance_mm" not in dims:
+            dims["bend_allowance_mm"] = 300.0
+
         main_dia = float(m["main_bar_diameter_mm"]) if m.get("main_bar_diameter_mm") is not None else None
         sec_dia = float(m["secondary_bar_diameter_mm"]) if m.get("secondary_bar_diameter_mm") is not None else None
         spacing = float(m["spacing_mm"]) if m.get("spacing_mm") is not None else None
@@ -248,12 +273,13 @@ def _parse_gemini_json_response(raw_text: str, file_name: str) -> ExtractionResu
                 member_id=mid,
                 member_type=mtype,
                 dimensions=dims,
+                num_bars=parsed_num_bars,
                 main_bar_diameter_mm=main_dia,
                 secondary_bar_diameter_mm=sec_dia,
                 spacing_mm=spacing,
                 concrete_grade=str(m.get("concrete_grade", "M25")).upper(),
                 steel_grade=str(m.get("steel_grade", "FE500")).upper(),
-                reinforcement_summary=str(m.get("reinforcement_summary", "")),
+                reinforcement_summary=reinf_str,
                 confidence=conf,
                 citations=m.get("citations", [f"drawing:{file_name}"]),
                 notes=m.get("notes", []),

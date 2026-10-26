@@ -4,13 +4,15 @@ from pydantic import BaseModel, Field, field_validator
 class ColumnBarRequest(BaseModel):
     member_id: str = Field(min_length=1, max_length=40)
     bar_diameter_mm: float = Field(gt=0)
+    num_bars: int = Field(default=4, ge=1, description="Number of primary longitudinal bars")
     storey_height_mm: float = Field(gt=0)
-    footing_embedment_mm: float = Field(ge=0)
-    top_extension_mm: float = Field(ge=0)
+    footing_embedment_mm: float = Field(ge=0, default=0.0)
+    top_extension_mm: float = Field(ge=0, default=0.0)
     column_width_mm: float | None = Field(default=None, description="Column cross-section width in mm")
     column_depth_mm: float | None = Field(default=None, description="Column cross-section depth in mm")
-    bend_allowance_mm: float = Field(ge=0, default=0)
-    lap_length_mm: float = Field(ge=0, default=0)
+    bend_allowance_mm: float = Field(ge=0, default=0.0)
+    lap_length_mm: float = Field(ge=0, default=0.0)
+    has_lap_splice: bool = Field(default=False, description="Whether lap splice is required")
     concrete_grade: str = Field(min_length=1)
     steel_grade: str = Field(min_length=1)
     source_references: list[str] = Field(min_length=1)
@@ -96,18 +98,22 @@ class ColumnBarResult(BaseModel):
     is_code_provisions: dict[str, str | float] | None = None
     concrete_volume_m3: float = 0.0
     concrete_grade: str = "M25"
+    num_bars: int = 4
+    bar_diameter_mm: float = 16.0
 
-    def to_bbs_result(self, bar_diameter_mm: float = 16.0, num_bars: int = 4) -> BBSCalculationResult:
+    def to_bbs_result(self, bar_diameter_mm: float | None = None, num_bars: int | None = None) -> BBSCalculationResult:
         from app.engineering.calculators.concrete import calculate_concrete_materials, DRY_VOLUME_FACTOR
 
-        unit_wt = round((bar_diameter_mm ** 2) / 162.0, 3)
-        total_len = round(self.cutting_length_m * num_bars, 3)
+        eff_dia = bar_diameter_mm if bar_diameter_mm is not None else self.bar_diameter_mm
+        eff_num = num_bars if num_bars is not None else self.num_bars
+        unit_wt = round((eff_dia ** 2) / 162.0, 3)
+        total_len = round(self.cutting_length_m * eff_num, 3)
         total_wt = round(unit_wt * total_len, 2)
         item = BBSItem(
             bar_mark="Main Longitudinal",
             bar_type="main",
-            bar_diameter_mm=bar_diameter_mm,
-            num_bars=num_bars,
+            bar_diameter_mm=eff_dia,
+            num_bars=eff_num,
             cutting_length_mm=self.cutting_length_mm,
             cutting_length_m=self.cutting_length_m,
             total_length_m=total_len,

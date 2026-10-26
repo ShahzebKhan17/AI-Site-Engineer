@@ -137,10 +137,10 @@ def calculate_column_lap_length(
 
     if s_type == StressType.COMPRESSION:
         min_rule_mm = 24.0 * bar_diameter_mm
-        rule_desc = "max(Ld_compression, 24 * phi)"
+        rule_desc = "max(Ld_compression, 24 * ϕ)"
     else:
         min_rule_mm = 30.0 * bar_diameter_mm
-        rule_desc = "max(Ld_tension, 30 * phi)"
+        rule_desc = "max(Ld_tension, 30 * ϕ)"
 
     lap_len = max(ld_result.development_length_mm, min_rule_mm)
     factor = round(lap_len / bar_diameter_mm, 2)

@@ -102,6 +102,7 @@ class ParameterCalculationRequest(BaseModel):
     member_id: str
     member_type: str = "column"  # column, beam, footing, slab, pile, pile_cap, pier, staircase, retaining_wall
     dimensions: dict[str, float] = Field(default_factory=dict)
+    num_bars: int | None = None
     main_bar_diameter_mm: float = 16.0
     secondary_bar_diameter_mm: float | None = 8.0
     spacing_mm: float | None = 150.0
@@ -118,21 +119,28 @@ def calculate_from_reviewed_parameters(request: ParameterCalculationRequest) -> 
     citations = request.citations or [f"drawing:reviewed_member#{request.member_id}"]
 
     if mtype == "column":
+        num_bars = request.num_bars or int(dims.get("num_bars", dims.get("num_main_bars", 4)))
+        footing_embedment = float(dims.get("footing_embedment_mm", 0.0))
+        bend_allowance = float(dims.get("bend_allowance_mm", 0.0))
+        has_lap = bool(dims.get("has_lap_splice", False))
         col_req = ColumnBarRequest(
             member_id=request.member_id,
             bar_diameter_mm=request.main_bar_diameter_mm,
-            storey_height_mm=dims.get("storey_height_mm", 3200.0),
-            column_width_mm=dims.get("width_mm", 400.0),
-            column_depth_mm=dims.get("depth_mm", 600.0),
-            footing_embedment_mm=dims.get("footing_embedment_mm", 500.0),
+            num_bars=num_bars,
+            storey_height_mm=dims.get("storey_height_mm", dims.get("height_mm", 3000.0)),
+            column_width_mm=dims.get("width_mm", 300.0),
+            column_depth_mm=dims.get("depth_mm", 450.0),
+            footing_embedment_mm=footing_embedment,
             top_extension_mm=dims.get("top_extension_mm", 0.0),
+            bend_allowance_mm=bend_allowance,
+            has_lap_splice=has_lap,
             concrete_grade=request.concrete_grade,
             steel_grade=request.steel_grade,
             source_references=citations,
             use_is_code_rules=True,
             deduct_bends=True,
         )
-        return calculate_longitudinal_bar(col_req)
+        return calculate_longitudinal_bar(col_req).to_bbs_result()
 
     if mtype == "beam":
         beam_req = BeamBarRequest(
@@ -271,6 +279,7 @@ def calculate_from_reviewed_parameters(request: ParameterCalculationRequest) -> 
 class ProjectBBSRequest(BaseModel):
     project_id: str = "Structural Project"
     candidate_chunks_cache: list[dict[str, Any]] | None = None
+    allow_demo_fallback: bool = False
 
 
 @router.post("/project-bbs", response_model=ProjectBBSResponse)
@@ -278,13 +287,15 @@ def get_project_bbs(request: ProjectBBSRequest | None = None) -> ProjectBBSRespo
     """Generate consolidated multi-member Bar Bending Schedule and procurement steel breakdown."""
     chunks = request.candidate_chunks_cache if request else None
     proj_id = request.project_id if request else "Structural Project"
-    return generate_consolidated_project_bbs(chunks=chunks, project_id=proj_id)
+    allow_demo = request.allow_demo_fallback if request else False
+    return generate_consolidated_project_bbs(chunks=chunks, project_id=proj_id, allow_demo_fallback=allow_demo)
 
 
 class OptimizationRequest(BaseModel):
     project_id: str = "Structural Project"
     items: list[dict[str, Any]] | None = None
     candidate_chunks_cache: list[dict[str, Any]] | None = None
+    allow_demo_fallback: bool = False
 
 
 @router.post("/optimize-cutting", response_model=ProcurementOrderRequisition)
@@ -296,7 +307,8 @@ def optimize_rebar_cutting_patterns(request: OptimizationRequest | None = None) 
     if not target_items:
         # Default to consolidated project items
         chunks = request.candidate_chunks_cache if request else None
-        proj_bbs = generate_consolidated_project_bbs(chunks=chunks, project_id=proj_id)
+        allow_demo = request.allow_demo_fallback if request else False
+        proj_bbs = generate_consolidated_project_bbs(chunks=chunks, project_id=proj_id, allow_demo_fallback=allow_demo)
         target_items = [
             {
                 "member_id": it.member_id,

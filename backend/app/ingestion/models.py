@@ -15,6 +15,7 @@ class ExtractedMember(BaseModel):
     member_id: str
     member_type: str = "column"
     dimensions: dict[str, float] = Field(default_factory=dict)
+    num_bars: int | None = None
     main_bar_diameter_mm: float | None = None
     secondary_bar_diameter_mm: float | None = None
     spacing_mm: float | None = None
