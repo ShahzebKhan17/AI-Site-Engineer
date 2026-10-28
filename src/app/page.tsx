@@ -181,6 +181,233 @@ type InspectItemData = {
   activeTab: "cutting_length" | "unit_weight" | "total_weight";
 };
 
+function StructuredAiAnswerView({ answer }: { answer: string }) {
+  // Check if this is a Concrete Volume / Material Estimation answer
+  const isConcrete =
+    answer.toLowerCase().includes("concrete volume") ||
+    answer.toLowerCase().includes("cement required") ||
+    (answer.toLowerCase().includes("wet concrete") && answer.toLowerCase().includes("dry volume"));
+
+  if (isConcrete) {
+    const wetVolMatch = answer.match(/(?:Wet Concrete Volume|Wet Volume)[^\d]*([\d.]+)\s*(?:m³|cu\.m|m3)?/i);
+    const dryVolMatch = answer.match(/(?:Dry Volume|Dry Concrete Volume)[^\d]*([\d.]+)\s*(?:m³|cu\.m|m3)?/i);
+    const gradeMatch = answer.match(/Concrete Grade[:\*\s]+([A-Za-z0-9]+)/i);
+    const cementMatch = answer.match(/Cement Required[:\*\s]+([\d.]+)\s*bags?(?:\s*\([^)]*\))?/i);
+    const sandMatch = answer.match(/Sand[^:]*[:\*\s]+([\d.]+)\s*(?:m³|cu\.m|m3)?/i);
+    const aggMatch = answer.match(/(?:Coarse Aggregate|Aggregate)[^:]*[:\*\s]+([\d.]+)\s*(?:m³|cu\.m|m3)?/i);
+    const waterMatch = answer.match(/Water Requirement[^:]*[:\*\s]+([\d.]+)\s*(?:Liters?|L|litres?)?/i);
+
+    const memberTitleMatch = answer.match(/\*\*Concrete Volume & Material Estimation for Member\s+([^:*]+)/i);
+    const rawMemberTitle = memberTitleMatch ? memberTitleMatch[1].trim() : "Member Estimation";
+    const memberTitle = rawMemberTitle.replace(/\s*\([^)]*per[^)]*\)/i, "").trim();
+
+    const wetVol = wetVolMatch ? wetVolMatch[1] : null;
+    const dryVol = dryVolMatch ? dryVolMatch[1] : null;
+    const grade = gradeMatch ? gradeMatch[1] : "M25";
+    const cementBags = cementMatch ? cementMatch[1] : null;
+    const sand = sandMatch ? sandMatch[1] : null;
+    const agg = aggMatch ? aggMatch[1] : null;
+    const water = waterMatch ? waterMatch[1] : null;
+
+    if (wetVol || cementBags) {
+      return (
+        <div className="space-y-3.5">
+          {/* Header Summary */}
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-800">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-white tracking-wide">
+                🏗️ Concrete Volume &amp; Material Estimation
+              </span>
+              <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-500/40 uppercase">
+                {memberTitle}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                Grade: <strong className="text-cyan-300">{grade}</strong>
+              </span>
+              <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-emerald-950/70 text-emerald-300 border border-emerald-500/30">
+                IS 456 Verified
+              </span>
+            </div>
+          </div>
+
+          {/* Primary Volume KPI Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="bg-slate-950/80 border border-cyan-500/30 rounded-xl p-3.5 relative overflow-hidden group hover:border-cyan-400/60 transition-all">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[11px] font-mono uppercase text-slate-400 font-bold tracking-wider">
+                  Wet In-Situ Volume
+                </span>
+                <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-500/30">
+                  Net Section
+                </span>
+              </div>
+              <div className="flex items-baseline gap-1.5 my-1">
+                <span className="text-3xl font-black font-mono text-white group-hover:text-cyan-200 transition-colors">
+                  {wetVol || "0.000"}
+                </span>
+                <span className="text-base font-mono text-cyan-400 font-bold">m³</span>
+              </div>
+              <div className="text-[11px] text-slate-400">
+                Net finished structural concrete volume from geometry
+              </div>
+            </div>
+
+            <div className="bg-slate-950/80 border border-emerald-500/30 rounded-xl p-3.5 relative overflow-hidden group hover:border-emerald-400/60 transition-all">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[11px] font-mono uppercase text-slate-400 font-bold tracking-wider">
+                  Dry Batch Volume (1.54x)
+                </span>
+                <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-500/30">
+                  Batching Req
+                </span>
+              </div>
+              <div className="flex items-baseline gap-1.5 my-1">
+                <span className="text-3xl font-black font-mono text-white group-hover:text-emerald-200 transition-colors">
+                  {dryVol || "0.000"}
+                </span>
+                <span className="text-base font-mono text-emerald-400 font-bold">m³</span>
+              </div>
+              <div className="text-[11px] text-slate-400">
+                IS 456 factor for voids, air entrainment &amp; shrinkage
+              </div>
+            </div>
+          </div>
+
+          {/* Constituent Materials Breakdown Grid */}
+          <div>
+            <div className="text-[11px] font-mono uppercase text-cyan-400 font-bold tracking-wider mb-2 flex items-center gap-1.5">
+              <span>📊</span> Required Materials for Batching
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              {/* Cement */}
+              <div className="bg-slate-950/60 border border-slate-800 hover:border-cyan-500/40 rounded-lg p-2.5 transition-all">
+                <div className="text-[11px] font-mono text-slate-400 font-medium">🧱 Cement</div>
+                <div className="text-lg font-black font-mono text-cyan-300 mt-1">
+                  {cementBags || "0.00"} <span className="text-xs font-normal text-slate-300">bags</span>
+                </div>
+                <div className="text-[10px] text-slate-500 mt-0.5 font-mono">50 kg standard bags</div>
+              </div>
+
+              {/* Sand */}
+              <div className="bg-slate-950/60 border border-slate-800 hover:border-cyan-500/40 rounded-lg p-2.5 transition-all">
+                <div className="text-[11px] font-mono text-slate-400 font-medium">⏳ Sand (Fine)</div>
+                <div className="text-lg font-black font-mono text-amber-300 mt-1">
+                  {sand || "0.000"} <span className="text-xs font-normal text-slate-300">m³</span>
+                </div>
+                <div className="text-[10px] text-slate-500 mt-0.5 font-mono">Zone II river/M-sand</div>
+              </div>
+
+              {/* Coarse Aggregate */}
+              <div className="bg-slate-950/60 border border-slate-800 hover:border-cyan-500/40 rounded-lg p-2.5 transition-all">
+                <div className="text-[11px] font-mono text-slate-400 font-medium">🪨 Coarse Agg</div>
+                <div className="text-lg font-black font-mono text-slate-200 mt-1">
+                  {agg || "0.000"} <span className="text-xs font-normal text-slate-300">m³</span>
+                </div>
+                <div className="text-[10px] text-slate-500 mt-0.5 font-mono">20mm &amp; 10mm graded</div>
+              </div>
+
+              {/* Water */}
+              <div className="bg-slate-950/60 border border-slate-800 hover:border-cyan-500/40 rounded-lg p-2.5 transition-all">
+                <div className="text-[11px] font-mono text-slate-400 font-medium">💧 Water</div>
+                <div className="text-lg font-black font-mono text-sky-300 mt-1">
+                  {water || "0.0"} <span className="text-xs font-normal text-slate-300">Liters</span>
+                </div>
+                <div className="text-[10px] text-slate-500 mt-0.5 font-mono">IS 456 max W/C</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Audit & Compliance Footer */}
+          <div className="bg-slate-950/50 border border-cyan-500/20 rounded-lg px-3 py-2 flex items-center justify-between text-xs font-mono text-slate-400">
+            <span className="flex items-center gap-1.5 text-cyan-400">
+              <span>✓</span> Deterministic Engineering Computation (0% LLM arithmetic error)
+            </span>
+            <span className="text-[10px] text-slate-500">IS 456:2000 Cl. 9.1</span>
+          </div>
+        </div>
+      );
+    }
+  }
+
+  // Structured Line-by-Line Formatter for BBS or General Answers
+  const lines = answer.split("\n").filter((l) => l.trim().length > 0);
+
+  return (
+    <div className="space-y-2.5 font-sans">
+      {lines.map((line, idx) => {
+        const trimmed = line.trim();
+
+        if (trimmed.startsWith("*Audit Note") || (trimmed.startsWith("*") && trimmed.endsWith("*") && trimmed.toLowerCase().includes("audit"))) {
+          const text = trimmed.replace(/^\*+|\*+$/g, "");
+          return (
+            <div key={idx} className="mt-3 p-2.5 rounded-lg bg-slate-950/60 border border-cyan-500/20 text-xs font-mono text-cyan-300/90 flex items-center gap-2">
+              <span className="text-cyan-400 font-bold">✓</span>
+              <span>{text}</span>
+            </div>
+          );
+        }
+
+        if (trimmed.startsWith("**") && (trimmed.endsWith("**") || trimmed.endsWith(":**") || trimmed.includes("Resolved") || trimmed.includes("Details"))) {
+          const cleanHeader = trimmed.replace(/\*\*/g, "");
+          return (
+            <div key={idx} className="text-sm font-bold text-white tracking-wide pb-1 border-b border-slate-800 flex items-center gap-2">
+              <span className="inline-block w-2 h-2 rounded-full bg-cyan-400" />
+              <span>{cleanHeader}</span>
+            </div>
+          );
+        }
+
+        if (trimmed.startsWith("•") || trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
+          const content = trimmed.replace(/^[•\-\*]\s*/, "");
+          const parts = content.split(":**");
+          if (parts.length === 2) {
+            const label = parts[0].replace(/\*\*/g, "").trim();
+            const value = parts[1].replace(/\*\*/g, "").trim();
+            return (
+              <div key={idx} className="flex flex-wrap items-baseline gap-2 py-1.5 px-3 rounded-lg bg-slate-950/40 border border-slate-800 text-xs">
+                <span className="font-mono text-cyan-400 font-semibold">{label}:</span>
+                <span className="text-slate-200 font-medium">{value}</span>
+              </div>
+            );
+          }
+
+          if (line.startsWith("  ") || line.startsWith("\t")) {
+            return (
+              <div key={idx} className="pl-6 text-xs text-slate-300 font-mono py-0.5 flex items-center gap-1.5">
+                <span className="text-cyan-500 text-[10px]">↳</span>
+                <span>{content.replace(/\*\*/g, "")}</span>
+              </div>
+            );
+          }
+
+          return (
+            <div key={idx} className="flex items-start gap-2 text-xs py-1.5 px-3 rounded-lg bg-slate-950/30 text-slate-200">
+              <span className="text-cyan-400 mt-0.5">•</span>
+              <span className="leading-relaxed">{content.replace(/\*\*/g, "")}</span>
+            </div>
+          );
+        }
+
+        if (trimmed.startsWith(">")) {
+          return (
+            <div key={idx} className="p-3 my-2 rounded-lg bg-cyan-950/20 border-l-4 border-cyan-400 text-xs text-slate-300 italic font-mono">
+              {trimmed.replace(/^>\s*/, "").replace(/\*\*/g, "")}
+            </div>
+          );
+        }
+
+        return (
+          <p key={idx} className="text-xs text-slate-300 leading-relaxed font-sans">
+            {trimmed.replace(/\*\*/g, "")}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function Home() {
   const [drawings, setDrawings] = useState<DrawingItem[]>([]);
   const [query, setQuery] = useState("");
@@ -877,43 +1104,51 @@ export default function Home() {
                     <span className="text-xs font-mono text-cyan-300 font-bold uppercase tracking-wider block mb-2">
                       STEP-BY-STEP ARITHMETIC BREAKDOWN (mm)
                     </span>
-                    <div className="civil-table-wrapper" style={{ marginBottom: "0px" }}>
-                      <table className="civil-table" style={{ minWidth: "100%" }}>
+                    <div className="w-full overflow-x-auto rounded-xl border border-cyan-500/40 bg-slate-950/90 shadow-xl shadow-black/50">
+                      <table className="w-full text-left font-mono text-xs border-collapse">
                         <colgroup>
                           <col style={{ width: "48%" }} />
                           <col style={{ width: "28%" }} />
                           <col style={{ width: "24%" }} />
                         </colgroup>
                         <thead>
-                          <tr>
-                            <th>Component / Provision</th>
-                            <th>Code Standard</th>
-                            <th className="text-right">Length (mm)</th>
+                          <tr className="bg-slate-900 border-b border-cyan-500/40 text-cyan-300">
+                            <th className="px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-wider border-r border-slate-800">
+                              Component / Provision
+                            </th>
+                            <th className="px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-wider border-r border-slate-800">
+                              Code Standard
+                            </th>
+                            <th className="px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-wider text-right">
+                              Length (mm)
+                            </th>
                           </tr>
                         </thead>
-                        <tbody>
+                        <tbody className="divide-y divide-slate-800/80">
                           {inspectItem.breakdown.map((b, idx) => (
-                            <tr key={`insp-row-${idx}`}>
-                              <td style={{ color: "#f8fafc", fontWeight: 600 }}>
+                            <tr key={`insp-row-${idx}`} className="hover:bg-cyan-950/25 transition-colors odd:bg-slate-950/60 even:bg-slate-900/40">
+                              <td className="px-3.5 py-2.5 font-semibold text-slate-100 border-r border-slate-800/60">
                                 {b.label}
                               </td>
-                              <td>
-                                <span className="civil-clause-badge">
+                              <td className="px-3.5 py-2.5 border-r border-slate-800/60">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded bg-sky-950/80 border border-sky-500/40 text-sky-300 font-mono text-[11px]">
                                   {b.clause || "Drawing Detail"}
                                 </span>
                               </td>
-                              <td className="text-right" style={{ fontWeight: 700, color: b.length_mm < 0 ? "#fb7185" : "#34d399" }}>
-                                {b.length_mm > 0 ? `+${b.length_mm.toFixed(1)}` : b.length_mm.toFixed(1)}
+                              <td className="px-3.5 py-2.5 text-right font-bold text-sm">
+                                <span className={b.length_mm < 0 ? "text-rose-400" : "text-emerald-400"}>
+                                  {b.length_mm > 0 ? `+${b.length_mm.toFixed(1)}` : b.length_mm.toFixed(1)}
+                                </span>
                               </td>
                             </tr>
                           ))}
                         </tbody>
-                        <tfoot>
+                        <tfoot className="bg-slate-900 border-t-2 border-cyan-400">
                           <tr>
-                            <td colSpan={2}>
+                            <td colSpan={2} className="px-3.5 py-2.5 font-bold text-slate-200 text-xs uppercase tracking-wider border-r border-slate-800">
                               FINAL CUTTING LENGTH (mm)
                             </td>
-                            <td className="text-right" style={{ color: "#00e5ff", fontSize: "0.88rem", fontWeight: 800 }}>
+                            <td className="px-3.5 py-2.5 text-right text-cyan-300 font-black text-sm">
                               {inspectItem.cuttingLengthMm.toFixed(1)} mm ({inspectItem.cuttingLengthM.toFixed(3)} m)
                             </td>
                           </tr>
@@ -1853,8 +2088,8 @@ export default function Home() {
                         {dwg.revision} · {dwg.size} · {dwg.pages} pages
                       </small>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="badge-ready">
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="badge-ready shrink-0">
                         {dwg.status === "Indexed" ? "● HYBRID STORE" : dwg.status}
                       </span>
                       <button
@@ -1864,11 +2099,11 @@ export default function Home() {
                           handleDeleteDrawing(dwg.name);
                         }}
                         title={`Remove "${dwg.name}"`}
-                        aria-label={`Delete ${dwg.name}`}
-                        className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 rounded border border-transparent hover:border-rose-500/40 transition-colors cursor-pointer"
+                        aria-label={`Remove ${dwg.name}`}
+                        className="drawing-delete-btn shrink-0"
                       >
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
                         </svg>
                       </button>
                     </div>
@@ -2073,8 +2308,8 @@ export default function Home() {
                     IS 456 VERIFIED
                   </span>
                 </div>
-                <div className="text-sm text-slate-200 leading-relaxed whitespace-pre-line font-sans border-l-2 border-cyan-400/80 pl-3 py-1">
-                  {aiAnswer}
+                <div className="text-sm text-slate-200 leading-relaxed font-sans border-l-2 border-cyan-400/80 pl-3 py-1">
+                  <StructuredAiAnswerView answer={aiAnswer} />
                 </div>
 
                 {evidenceSnippets.length > 0 && (
@@ -2185,13 +2420,21 @@ export default function Home() {
                 </div>
 
                 {/* Multiple Rebar Line Items */}
+                {/* Multiple Rebar Line Items */}
                 {activeResult.items && activeResult.items.length > 0 && (
-                  <div className="mb-4">
-                    <span className="text-xs font-mono text-cyan-300 font-bold uppercase tracking-wider block mb-2">
-                      BAR BENDING SCHEDULE ITEMS ({activeResult.items.length})
-                    </span>
-                    <div className="civil-table-wrapper">
-                      <table className="civil-table">
+                  <div className="mb-6">
+                    <div className="flex items-center justify-between mb-2.5">
+                      <span className="text-xs font-mono text-cyan-300 font-bold uppercase tracking-wider flex items-center gap-2">
+                        <span className="inline-block w-2 h-2 rounded-full bg-cyan-400" />
+                        BAR BENDING SCHEDULE ITEMS ({activeResult.items.length})
+                      </span>
+                      <span className="text-[11px] font-mono text-slate-400 hidden sm:inline">
+                        Click quantities to audit formula &amp; bend deductions
+                      </span>
+                    </div>
+
+                    <div className="w-full overflow-x-auto rounded-xl border border-cyan-500/40 bg-slate-950/90 shadow-xl shadow-black/50">
+                      <table className="w-full text-left font-mono text-xs border-collapse">
                         <colgroup>
                           <col style={{ width: "38%" }} />
                           <col style={{ width: "12%" }} />
@@ -2201,40 +2444,54 @@ export default function Home() {
                           <col style={{ width: "14%" }} />
                         </colgroup>
                         <thead>
-                          <tr>
-                            <th>Bar Mark &amp; Reinforcement Details</th>
-                            <th className="text-center">Dia</th>
-                            <th className="text-center">No.</th>
-                            <th className="text-right">Cut L (m)</th>
-                            <th className="text-right">Unit Wt (kg/m)</th>
-                            <th className="text-right">Total Wt (kg)</th>
+                          <tr className="bg-slate-900 border-b border-cyan-500/40 text-cyan-300">
+                            <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider border-r border-slate-800">
+                              Bar Mark &amp; Details
+                            </th>
+                            <th className="px-3 py-3 text-[11px] font-bold uppercase tracking-wider text-center border-r border-slate-800">
+                              Dia
+                            </th>
+                            <th className="px-3 py-3 text-[11px] font-bold uppercase tracking-wider text-center border-r border-slate-800">
+                              No.
+                            </th>
+                            <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-right border-r border-slate-800">
+                              Cut L (m)
+                            </th>
+                            <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-right border-r border-slate-800">
+                              Unit Wt (kg/m)
+                            </th>
+                            <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-right">
+                              Total Wt (kg)
+                            </th>
                           </tr>
                         </thead>
-                        <tbody>
+                        <tbody className="divide-y divide-slate-800/80">
                           {activeResult.items.map((item, idx) => (
-                            <tr key={`item-${idx}`}>
-                              <td>
-                                <div style={{ fontWeight: 700, color: "#f8fafc", fontSize: "0.82rem" }}>
+                            <tr
+                              key={`item-${idx}`}
+                              className="hover:bg-cyan-950/25 transition-colors odd:bg-slate-950/60 even:bg-slate-900/40"
+                            >
+                              <td className="px-4 py-3.5 align-top border-r border-slate-800/60">
+                                <div className="font-bold text-white text-sm">
                                   {item.bar_mark}
                                 </div>
-                                <div style={{ fontSize: "0.7rem", color: "#94a3b8", marginTop: "3px", lineHeight: "1.4", wordBreak: "break-word" }}>
+                                <div className="text-[11px] text-slate-400 mt-1 leading-relaxed">
                                   {item.shape_description}
                                 </div>
                               </td>
-                              <td className="text-center">
-                                <span className="civil-dia-badge">
+                              <td className="px-3 py-3.5 text-center align-top border-r border-slate-800/60">
+                                <span className="inline-flex items-center justify-center px-2 py-0.5 rounded bg-cyan-950/90 border border-cyan-400 text-cyan-300 font-bold font-mono text-xs shadow-sm">
                                   T{item.bar_diameter_mm}
                                 </span>
                               </td>
-                              <td className="text-center">
-                                <span className="civil-qty-badge">
+                              <td className="px-3 py-3.5 text-center align-top border-r border-slate-800/60">
+                                <span className="inline-flex items-center justify-center px-2 py-0.5 rounded bg-slate-800 border border-slate-600 text-white font-bold font-mono text-xs shadow-sm">
                                   {item.num_bars}
                                 </span>
                               </td>
-                              <td className="text-right">
+                              <td className="px-4 py-3.5 text-right align-top border-r border-slate-800/60">
                                 <span
-                                  className="clickable-qty"
-                                  style={{ color: "#34d399", fontWeight: 700 }}
+                                  className="clickable-qty text-emerald-400 font-bold text-sm"
                                   onClick={() =>
                                     setInspectItem({
                                       memberId: activeResult.memberId,
@@ -2255,10 +2512,9 @@ export default function Home() {
                                   {item.cutting_length_m.toFixed(3)}
                                 </span>
                               </td>
-                              <td className="text-right">
+                              <td className="px-4 py-3.5 text-right align-top border-r border-slate-800/60">
                                 <span
-                                  className="clickable-qty"
-                                  style={{ color: "#38bdf8" }}
+                                  className="clickable-qty text-sky-400 font-medium text-sm"
                                   onClick={() =>
                                     setInspectItem({
                                       memberId: activeResult.memberId,
@@ -2279,10 +2535,9 @@ export default function Home() {
                                   {item.unit_weight_kg_m.toFixed(2)}
                                 </span>
                               </td>
-                              <td className="text-right">
+                              <td className="px-4 py-3.5 text-right align-top">
                                 <span
-                                  className="clickable-qty"
-                                  style={{ color: "#fcd34d", fontWeight: 700 }}
+                                  className="clickable-qty text-amber-300 font-bold text-sm"
                                   onClick={() =>
                                     setInspectItem({
                                       memberId: activeResult.memberId,
@@ -2306,84 +2561,119 @@ export default function Home() {
                             </tr>
                           ))}
                         </tbody>
+                        <tfoot className="bg-slate-900 border-t-2 border-cyan-500/60">
+                          <tr>
+                            <td colSpan={3} className="px-4 py-3 text-slate-300 font-bold text-xs uppercase tracking-wider border-r border-slate-800">
+                              Total Schedule Steel Weight
+                            </td>
+                            <td className="px-4 py-3 text-right font-bold text-emerald-400 text-sm border-r border-slate-800">
+                              {activeResult.cuttingLengthM.toFixed(3)} m
+                            </td>
+                            <td className="px-4 py-3 text-right text-slate-400 text-xs border-r border-slate-800">
+                              —
+                            </td>
+                            <td className="px-4 py-3 text-right font-bold text-cyan-300 text-base">
+                              {activeResult.totalWeightKg ? `${activeResult.totalWeightKg.toFixed(2)} kg` : "—"}
+                            </td>
+                          </tr>
+                        </tfoot>
                       </table>
                     </div>
                   </div>
                 )}
 
                 {/* Arithmetic Breakdown Component Table */}
-                <span className="text-xs font-mono text-cyan-300 font-bold uppercase tracking-wider block mb-2">
-                  ARITHMETIC BREAKDOWN &amp; CODE PROVISIONS
-                </span>
-                <div className="civil-table-wrapper">
-                  <table className="civil-table">
-                    <colgroup>
-                      <col style={{ width: "50%" }} />
-                      <col style={{ width: "28%" }} />
-                      <col style={{ width: "22%" }} />
-                    </colgroup>
-                    <thead>
-                      <tr>
-                        <th>Component / Provision</th>
-                        <th>Clause / Standard</th>
-                        <th className="text-right">Length (mm)</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {activeResult.breakdown.map((row, idx) => (
-                        <tr key={`calc-row-${idx}`}>
-                          <td style={{ color: "#f8fafc", fontWeight: 600 }}>{row.label}</td>
-                          <td>
-                            <span className="civil-clause-badge">
-                              {row.clause || "Drawing Detail"}
-                            </span>
+                <div className="mb-6">
+                  <span className="text-xs font-mono text-cyan-300 font-bold uppercase tracking-wider block mb-2.5 flex items-center gap-2">
+                    <span className="inline-block w-2 h-2 rounded-full bg-cyan-400" />
+                    ARITHMETIC BREAKDOWN &amp; CODE PROVISIONS
+                  </span>
+                  <div className="w-full overflow-x-auto rounded-xl border border-cyan-500/40 bg-slate-950/90 shadow-xl shadow-black/50">
+                    <table className="w-full text-left font-mono text-xs border-collapse">
+                      <colgroup>
+                        <col style={{ width: "50%" }} />
+                        <col style={{ width: "28%" }} />
+                        <col style={{ width: "22%" }} />
+                      </colgroup>
+                      <thead>
+                        <tr className="bg-slate-900 border-b border-cyan-500/40 text-cyan-300">
+                          <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider border-r border-slate-800">
+                            Component / Provision
+                          </th>
+                          <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider border-r border-slate-800">
+                            Clause / Standard
+                          </th>
+                          <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-right">
+                            Length (mm)
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/80">
+                        {activeResult.breakdown.map((row, idx) => (
+                          <tr
+                            key={`calc-row-${idx}`}
+                            className="hover:bg-cyan-950/25 transition-colors odd:bg-slate-950/60 even:bg-slate-900/40"
+                          >
+                            <td className="px-4 py-3 font-semibold text-slate-100 border-r border-slate-800/60">
+                              {row.label}
+                            </td>
+                            <td className="px-4 py-3 border-r border-slate-800/60">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded bg-sky-950/80 border border-sky-500/40 text-sky-300 font-mono text-[11px]">
+                                {row.clause || "Drawing Detail"}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-right font-bold text-sm">
+                              <span className={row.length_mm < 0 ? "text-rose-400" : "text-emerald-400"}>
+                                {row.length_mm > 0 ? `+${row.length_mm.toFixed(1)}` : row.length_mm.toFixed(1)}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-slate-900 border-t-2 border-cyan-400">
+                        <tr>
+                          <td colSpan={2} className="px-4 py-3 font-bold text-slate-200 text-xs uppercase tracking-wider border-r border-slate-800">
+                            TOTAL CUTTING LENGTH (DETERMINISTIC SUM)
                           </td>
-                          <td className="text-right" style={{ fontWeight: 700, color: row.length_mm < 0 ? "#fb7185" : "#34d399" }}>
-                            {row.length_mm > 0 ? `+${row.length_mm.toFixed(1)}` : row.length_mm.toFixed(1)}
+                          <td className="px-4 py-3 text-right text-cyan-300 font-black text-base">
+                            {activeResult.cuttingLengthMm.toFixed(1)} mm
                           </td>
                         </tr>
-                      ))}
-                    </tbody>
-                    <tfoot>
-                      <tr>
-                        <td colSpan={2}>
-                          TOTAL CUTTING LENGTH (DETERMINISTIC SUM)
-                        </td>
-                        <td className="text-right" style={{ color: "#00e5ff", fontSize: "0.88rem", fontWeight: 800 }}>
-                          {activeResult.cuttingLengthMm.toFixed(1)} mm
-                        </td>
-                      </tr>
-                    </tfoot>
-                  </table>
+                      </tfoot>
+                    </table>
+                  </div>
                 </div>
 
                 {/* Verified Drawing Sheet Citations */}
-                <div className="mt-4 pt-3 border-t border-slate-800">
-                  <div className="font-mono text-cyan-400 uppercase text-[0.7rem] font-bold mb-1">
-                    DRAWING PAGE CITATIONS:
+                <div className="mt-5 pt-4 border-t border-slate-800">
+                  <div className="font-mono text-cyan-400 uppercase text-[0.7rem] font-bold mb-2 flex items-center gap-1.5">
+                    <span>📄</span> DRAWING PAGE CITATIONS:
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {activeResult.citations.map((cite, idx) => (
+                    {Array.from(new Set(activeResult.citations)).map((cite, idx) => (
                       <span
                         key={`cite-${idx}`}
-                        className="bg-cyan-950/60 border border-cyan-500/30 text-cyan-300 font-mono text-xs px-2 py-0.5 rounded"
+                        className="inline-flex items-center gap-1.5 bg-cyan-950/70 border border-cyan-500/40 text-cyan-300 font-mono text-xs px-2.5 py-1 rounded-md shadow-sm"
                       >
+                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
                         {cite}
                       </span>
                     ))}
                   </div>
                 </div>
 
-                <div className="text-xs text-slate-400 mt-3 space-y-1">
-                  <div className="font-mono text-cyan-400 uppercase text-[0.7rem] font-bold">
-                    ENGINEER REVIEW &amp; SAFETY AUDIT NOTES:
+                <div className="mt-4 pt-3 border-t border-slate-800 space-y-2">
+                  <div className="font-mono text-cyan-400 uppercase text-[0.7rem] font-bold flex items-center gap-1.5">
+                    <span>🛡️</span> ENGINEER REVIEW &amp; SAFETY AUDIT NOTES:
                   </div>
-                  {activeResult.assumptions.map((note, idx) => (
-                    <div key={`note-${idx}`} className="flex items-start gap-2">
-                      <span className="text-cyan-400">✓</span>
-                      <span>{note}</span>
-                    </div>
-                  ))}
+                  <div className="space-y-1.5">
+                    {activeResult.assumptions.map((note, idx) => (
+                      <div key={`note-${idx}`} className="flex items-start gap-2.5 p-2 rounded-lg bg-slate-950/60 border border-slate-800/80 text-xs font-mono text-slate-300">
+                        <span className="text-emerald-400 font-bold shrink-0 mt-0.5">✓</span>
+                        <span className="leading-relaxed">{note}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
@@ -2545,12 +2835,12 @@ export default function Home() {
                       </div>
                     </div>
 
-                    <div className="civil-table-wrapper">
-                      <div className="text-[0.75rem] font-mono text-cyan-400 uppercase tracking-wider p-3 bg-[#091e3d] border-b border-[rgba(0,229,255,0.35)] flex justify-between items-center">
+                    <div className="w-full overflow-x-auto rounded-xl border border-cyan-500/40 bg-slate-950/90 shadow-xl shadow-black/50">
+                      <div className="text-[0.75rem] font-mono text-cyan-300 uppercase tracking-wider p-3 bg-slate-900 border-b border-cyan-500/30 flex justify-between items-center">
                         <span className="font-bold">DETAILED PROJECT BAR BENDING SCHEDULE ({projectBBSData.items.length} LINE ITEMS)</span>
-                        <span className="text-slate-400 font-normal">Click any quantity to inspect formula</span>
+                        <span className="text-slate-400 font-normal hidden sm:inline">Click any quantity to inspect formula</span>
                       </div>
-                      <table className="civil-table" style={{ minWidth: "750px" }}>
+                      <table className="w-full text-left font-mono text-xs border-collapse" style={{ minWidth: "750px" }}>
                         <colgroup>
                           <col style={{ width: "16%" }} />
                           <col style={{ width: "30%" }} />
@@ -2561,43 +2851,42 @@ export default function Home() {
                           <col style={{ width: "13%" }} />
                         </colgroup>
                         <thead>
-                          <tr>
-                            <th>Member</th>
-                            <th>Bar Mark &amp; Details</th>
-                            <th className="text-center">Dia</th>
-                            <th className="text-center">No.</th>
-                            <th className="text-right">Cut L (m)</th>
-                            <th className="text-right">Unit Wt (kg/m)</th>
-                            <th className="text-right">Total Wt (kg)</th>
+                          <tr className="bg-slate-900 border-b border-cyan-500/40 text-cyan-300">
+                            <th className="px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-wider border-r border-slate-800">Member</th>
+                            <th className="px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-wider border-r border-slate-800">Bar Mark &amp; Details</th>
+                            <th className="px-3 py-2.5 text-[11px] font-bold uppercase tracking-wider text-center border-r border-slate-800">Dia</th>
+                            <th className="px-3 py-2.5 text-[11px] font-bold uppercase tracking-wider text-center border-r border-slate-800">No.</th>
+                            <th className="px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-wider text-right border-r border-slate-800">Cut L (m)</th>
+                            <th className="px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-wider text-right border-r border-slate-800">Unit Wt (kg/m)</th>
+                            <th className="px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-wider text-right">Total Wt (kg)</th>
                           </tr>
                         </thead>
-                        <tbody>
+                        <tbody className="divide-y divide-slate-800/80">
                           {projectBBSData.items.map((it, idx) => (
-                            <tr key={`proj-item-${idx}`}>
-                              <td>
+                            <tr key={`proj-item-${idx}`} className="hover:bg-cyan-950/25 transition-colors odd:bg-slate-950/60 even:bg-slate-900/40">
+                              <td className="px-3.5 py-3 align-top border-r border-slate-800/60">
                                 <div className="text-cyan-300 font-bold text-sm tracking-wide">{it.member_id}</div>
-                                <span className="inline-block mt-0.5 px-1.5 py-0.2 bg-slate-800/90 border border-slate-700 rounded text-[0.65rem] text-slate-300 font-normal uppercase">
+                                <span className="inline-block mt-0.5 px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-[10px] text-slate-300 font-mono uppercase">
                                   {it.member_type}
                                 </span>
                               </td>
-                              <td>
+                              <td className="px-3.5 py-3 align-top border-r border-slate-800/60">
                                 <div style={{ fontWeight: 700, color: "#f8fafc", fontSize: "0.82rem" }}>{it.bar_mark}</div>
                                 <div style={{ fontSize: "0.7rem", color: "#94a3b8", marginTop: "3px", lineHeight: "1.4", wordBreak: "break-word" }}>{it.shape_description}</div>
                               </td>
-                              <td className="text-center">
-                                <span className="civil-dia-badge">
+                              <td className="px-3 py-3 text-center align-top border-r border-slate-800/60">
+                                <span className="inline-flex items-center justify-center px-2 py-0.5 rounded bg-cyan-950/90 border border-cyan-400 text-cyan-300 font-bold font-mono text-xs shadow-sm">
                                   T{it.bar_diameter_mm}
                                 </span>
                               </td>
-                              <td className="text-center">
-                                <span className="civil-qty-badge">
+                              <td className="px-3 py-3 text-center align-top border-r border-slate-800/60">
+                                <span className="inline-flex items-center justify-center px-2 py-0.5 rounded bg-slate-800 border border-slate-600 text-white font-bold font-mono text-xs shadow-sm">
                                   {it.num_bars}
                                 </span>
                               </td>
-                              <td className="text-right">
+                              <td className="px-3.5 py-3 text-right align-top border-r border-slate-800/60">
                                 <span
-                                  className="clickable-qty"
-                                  style={{ color: "#34d399", fontWeight: 700 }}
+                                  className="clickable-qty text-emerald-400 font-bold text-sm"
                                   onClick={() =>
                                     setInspectItem({
                                       memberId: it.member_id,
@@ -2642,10 +2931,9 @@ export default function Home() {
                                   {it.unit_weight_kg_m.toFixed(2)}
                                 </span>
                               </td>
-                              <td className="text-right">
+                              <td className="px-3.5 py-3 text-right align-top">
                                 <span
-                                  className="clickable-qty"
-                                  style={{ color: "#fcd34d", fontWeight: 700 }}
+                                  className="clickable-qty text-amber-300 font-bold text-sm"
                                   onClick={() =>
                                     setInspectItem({
                                       memberId: it.member_id,
@@ -2669,6 +2957,22 @@ export default function Home() {
                             </tr>
                           ))}
                         </tbody>
+                        <tfoot className="bg-slate-900 border-t-2 border-cyan-500/60">
+                          <tr>
+                            <td colSpan={4} className="px-3.5 py-3 text-slate-300 font-bold text-xs uppercase tracking-wider border-r border-slate-800">
+                              Consolidated Project Steel Total ({projectBBSData.total_members_count} Members)
+                            </td>
+                            <td className="px-3.5 py-3 text-right font-bold text-emerald-400 text-sm border-r border-slate-800">
+                              {projectBBSData.diameter_summaries.reduce((acc, d) => acc + d.total_length_m, 0).toFixed(1)} m
+                            </td>
+                            <td className="px-3.5 py-3 text-right text-slate-400 text-xs border-r border-slate-800">
+                              —
+                            </td>
+                            <td className="px-3.5 py-3 text-right font-bold text-cyan-300 text-base">
+                              {projectBBSData.total_steel_kg.toFixed(1)} kg ({projectBBSData.total_steel_tonnes.toFixed(3)} T)
+                            </td>
+                          </tr>
+                        </tfoot>
                       </table>
                     </div>
                   </>

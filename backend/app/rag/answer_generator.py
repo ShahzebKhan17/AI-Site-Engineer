@@ -25,7 +25,22 @@ def synthesize_engineering_answer(
         )
 
     top_chunk = chunks[0]
-    citations_str = ", ".join(dict.fromkeys(c.source_reference for c in chunks if c.source_reference)) or f"Page {top_chunk.page_number}"
+    raw_refs = [c.source_reference for c in chunks if c.source_reference]
+    unique_refs = list(dict.fromkeys(raw_refs))
+    if not unique_refs:
+        citations_str = f"Page {top_chunk.page_number}"
+    elif len(unique_refs) <= 2:
+        citations_str = ", ".join(unique_refs)
+    else:
+        page_refs = []
+        for r in unique_refs:
+            m = re.match(r"^(Page\s*\d+|Sheet\s*[\w\d-]+)", r, re.IGNORECASE)
+            page_refs.append(m.group(1) if m else r)
+        unique_pages = list(dict.fromkeys(page_refs))
+        if len(unique_pages) < len(unique_refs):
+            citations_str = ", ".join(unique_pages)
+        else:
+            citations_str = f"{unique_refs[0]}, {unique_refs[1]} (+{len(unique_refs) - 2} more)"
 
     # Direct Reinforcement Schedule Table extraction for Foundation / Raft
     is_foundation_or_raft = (
