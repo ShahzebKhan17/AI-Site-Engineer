@@ -1,3 +1,5 @@
+import math
+
 from app.engineering.models import CalculationBreakdown, ColumnBarRequest, ColumnBarResult
 from app.engineering.rules.sp34 import (
     calculate_bend_deduction,
@@ -8,12 +10,12 @@ ENGINE_VERSION = "0.2.0"
 
 
 def calculate_longitudinal_bar(request: ColumnBarRequest) -> ColumnBarResult:
-    """Calculate column longitudinal bar cutting length.
+    """Calculate column longitudinal bar and lateral tie cutting lengths.
 
     Supports:
       1. Explicit mode (default): Uses reviewed, exact values from drawings.
       2. IS Code mode (use_is_code_rules=True): Dynamically resolves development length,
-         lap length, and bend allowances per IS 456:2000 & SP 34:1987.
+         lap length, lateral tie pitch, and bend allowances per IS 456:2000 & SP 34:1987.
     """
     assumptions: list[str] = []
     is_code_provisions: dict[str, str | float] = {}
@@ -86,6 +88,38 @@ def calculate_longitudinal_bar(request: ColumnBarRequest) -> ColumnBarResult:
     total = sum(item.length_mm for item in breakdown)
     c_vol = round((request.column_width_mm * request.column_depth_mm * request.storey_height_mm) / 1e9, 4) if (request.column_width_mm and request.column_depth_mm) else 0.0
 
+    # Lateral Ties / Stirrups calculation per IS 456 Cl. 26.5.3.2 & SP 34 Cl. 7.2
+    col_w = request.column_width_mm or 300.0
+    col_d = request.column_depth_mm or 300.0
+    cover = request.clear_cover_mm if request.clear_cover_mm is not None else 40.0
+    tie_dia = request.tie_bar_dia_mm or 8.0
+
+    max_code_pitch = min(col_w, col_d, 16.0 * request.bar_diameter_mm, 300.0)
+    actual_pitch = request.tie_spacing_mm if (request.tie_spacing_mm and request.tie_spacing_mm > 0) else max_code_pitch
+    actual_pitch = min(actual_pitch, max_code_pitch)
+
+    num_ties = int(math.floor(request.storey_height_mm / actual_pitch)) + 1 if actual_pitch > 0 else 0
+
+    w_core = max(50.0, col_w - (2.0 * cover))
+    d_core = max(50.0, col_d - (2.0 * cover))
+    hook_ext = 2.0 * (10.0 * tie_dia)
+    bend_ded_135 = calculate_bend_deduction(tie_dia, 135.0).deduction_mm if request.deduct_bends else 0.0
+    bend_ded_90_tie = calculate_bend_deduction(tie_dia, 90.0).deduction_mm if request.deduct_bends else 0.0
+    total_ded = (3.0 * bend_ded_90_tie) + (2.0 * bend_ded_135)
+    tie_cut_mm = (2.0 * (w_core + d_core)) + hook_ext - total_ded
+    tie_m = round(tie_cut_mm / 1000.0, 3)
+
+    tie_breakdown = [
+        CalculationBreakdown(label="Core perimeter (2*(w+d))", length_mm=round(2.0 * (w_core + d_core), 1), clause="IS 456 Cl. 26.5.3"),
+        CalculationBreakdown(label="Seismic 135° hook extensions (2 x 10d)", length_mm=round(hook_ext, 1), clause="SP 34 Cl. 7.2"),
+    ]
+    if total_ded > 0:
+        tie_breakdown.append(CalculationBreakdown(label="Bend deductions (3x90° + 2x135°)", length_mm=-round(total_ded, 1), clause="IS 2502"))
+
+    if request.use_is_code_rules:
+        is_code_provisions["lateral_tie_pitch_mm"] = f"{actual_pitch:.0f} mm (IS 456 Cl. 26.5.3.2)"
+        is_code_provisions["lateral_tie_shape"] = "Closed rectangular tie with 135° seismic hooks"
+
     return ColumnBarResult(
         member_id=request.member_id,
         cutting_length_mm=round(total, 1),
@@ -99,4 +133,11 @@ def calculate_longitudinal_bar(request: ColumnBarRequest) -> ColumnBarResult:
         concrete_grade=request.concrete_grade,
         num_bars=request.num_bars,
         bar_diameter_mm=request.bar_diameter_mm,
+        tie_bar_dia_mm=tie_dia,
+        tie_spacing_mm=actual_pitch,
+        num_ties=num_ties,
+        tie_cutting_length_m=tie_m,
+        tie_cutting_length_mm=round(tie_cut_mm, 1),
+        tie_breakdown=tie_breakdown,
+        include_ties=request.include_ties,
     )

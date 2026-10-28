@@ -1902,30 +1902,38 @@ export default function Home() {
                     <span className="text-xs font-mono text-cyan-300 font-bold uppercase tracking-wider block mb-2">
                       BAR BENDING SCHEDULE ITEMS ({activeResult.items.length})
                     </span>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-xs font-mono border border-slate-800 bg-slate-950/70 rounded-lg overflow-hidden">
-                        <thead className="bg-slate-900/90 text-slate-300 border-b border-slate-800">
+                    <div className="overflow-x-auto rounded-lg border border-slate-700/80 bg-slate-950/80 shadow-inner">
+                      <table className="w-full text-xs font-mono border-collapse">
+                        <thead className="bg-slate-900 text-slate-300 border-b border-slate-700">
                           <tr>
-                            <th className="py-2 px-3 text-left">Bar Mark</th>
-                            <th className="py-2 px-3 text-center">Dia</th>
-                            <th className="py-2 px-3 text-center">No.</th>
-                            <th className="py-2 px-3 text-right">Cut L (m)</th>
-                            <th className="py-2 px-3 text-right">Unit Wt (kg/m)</th>
-                            <th className="py-2 px-3 text-right">Total Wt (kg)</th>
+                            <th className="py-2.5 px-3 text-left font-semibold border-r border-slate-800">Bar Mark</th>
+                            <th className="py-2.5 px-3 text-center font-semibold border-r border-slate-800 w-24">Dia</th>
+                            <th className="py-2.5 px-3 text-center font-semibold border-r border-slate-800 w-20">No.</th>
+                            <th className="py-2.5 px-3 text-right font-semibold border-r border-slate-800 w-28 whitespace-nowrap">Cut L (m)</th>
+                            <th className="py-2.5 px-3 text-right font-semibold border-r border-slate-800 w-32 whitespace-nowrap">Unit Wt (kg/m)</th>
+                            <th className="py-2.5 px-3 text-right font-semibold w-32 whitespace-nowrap">Total Wt (kg)</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-800/60">
+                        <tbody className="divide-y divide-slate-800/80">
                           {activeResult.items.map((item, idx) => (
-                            <tr key={`item-${idx}`} className="hover:bg-slate-900/40 transition">
-                              <td className="py-2 px-3 text-slate-200">
-                                <div>{item.bar_mark}</div>
-                                <div className="text-[0.65rem] text-slate-400 line-clamp-1">{item.shape_description}</div>
+                            <tr key={`item-${idx}`} className="hover:bg-slate-900/60 transition-colors">
+                              <td className="py-2.5 px-3 text-slate-200 border-r border-slate-800">
+                                <div className="font-semibold text-slate-100">{item.bar_mark}</div>
+                                <div className="text-[0.65rem] text-slate-400 mt-0.5">{item.shape_description}</div>
                               </td>
-                              <td className="py-2 px-3 text-center text-cyan-400 font-bold">T{item.bar_diameter_mm}</td>
-                              <td className="py-2 px-3 text-center text-slate-300">{item.num_bars}</td>
-                              <td className="py-2 px-3 text-right">
+                              <td className="py-2.5 px-3 text-center border-r border-slate-800 whitespace-nowrap">
+                                <span className="inline-block px-2.5 py-0.5 rounded bg-cyan-950/80 border border-cyan-500/50 text-cyan-300 font-bold shadow-sm">
+                                  T{item.bar_diameter_mm}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 text-center border-r border-slate-800 whitespace-nowrap">
+                                <span className="inline-block px-2 py-0.5 rounded bg-slate-800/90 border border-slate-700 text-slate-200 font-bold">
+                                  {item.num_bars}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 text-right border-r border-slate-800 whitespace-nowrap">
                                 <span
-                                  className="clickable-qty text-emerald-400 font-bold"
+                                  className="clickable-qty text-emerald-400 font-bold cursor-pointer hover:underline"
                                   onClick={() =>
                                     setInspectItem({
                                       memberId: activeResult.memberId,
@@ -1946,9 +1954,9 @@ export default function Home() {
                                   {item.cutting_length_m.toFixed(3)}
                                 </span>
                               </td>
-                              <td className="py-2 px-3 text-right">
+                              <td className="py-2.5 px-3 text-right border-r border-slate-800 whitespace-nowrap">
                                 <span
-                                  className="clickable-qty text-cyan-300"
+                                  className="clickable-qty text-cyan-300 cursor-pointer hover:underline"
                                   onClick={() =>
                                     setInspectItem({
                                       memberId: activeResult.memberId,
@@ -1969,9 +1977,9 @@ export default function Home() {
                                   {item.unit_weight_kg_m.toFixed(2)}
                                 </span>
                               </td>
-                              <td className="py-2 px-3 text-right">
+                              <td className="py-2.5 px-3 text-right whitespace-nowrap">
                                 <span
-                                  className="clickable-qty text-amber-300 font-bold"
+                                  className="clickable-qty text-amber-300 font-bold cursor-pointer hover:underline"
                                   onClick={() =>
                                     setInspectItem({
                                       memberId: activeResult.memberId,
@@ -2221,39 +2229,49 @@ export default function Home() {
                       </div>
                     </div>
 
-                    <div className="overflow-x-auto">
-                      <div className="text-[0.75rem] font-mono text-cyan-400 uppercase tracking-wider mb-2 font-bold flex justify-between items-center">
-                        <span>DETAILED PROJECT BAR BENDING SCHEDULE ({projectBBSData.items.length} LINE ITEMS)</span>
+                    <div className="overflow-x-auto rounded-lg border border-slate-700/80 bg-slate-950/80 shadow-inner">
+                      <div className="text-[0.75rem] font-mono text-cyan-400 uppercase tracking-wider p-3 bg-slate-900/90 border-b border-slate-700 flex justify-between items-center">
+                        <span className="font-bold">DETAILED PROJECT BAR BENDING SCHEDULE ({projectBBSData.items.length} LINE ITEMS)</span>
                         <span className="text-slate-400 font-normal">Click any quantity to inspect formula</span>
                       </div>
-                      <table className="w-full text-xs font-mono border border-slate-800 bg-slate-950/80 rounded-lg overflow-hidden">
-                        <thead className="bg-slate-900/90 text-cyan-300 border-b border-slate-800">
+                      <table className="w-full text-xs font-mono border-collapse">
+                        <thead className="bg-slate-900/90 text-cyan-300 border-b border-slate-700">
                           <tr>
-                            <th className="py-2 px-3 text-left">Member</th>
-                            <th className="py-2 px-3 text-left">Bar Mark</th>
-                            <th className="py-2 px-3 text-center">Dia</th>
-                            <th className="py-2 px-3 text-center">No.</th>
-                            <th className="py-2 px-3 text-right">Cut L (m)</th>
-                            <th className="py-2 px-3 text-right">Unit Wt</th>
-                            <th className="py-2 px-3 text-right">Total Wt (kg)</th>
+                            <th className="py-2.5 px-3 text-left font-semibold border-r border-slate-800 w-32 whitespace-nowrap">Member</th>
+                            <th className="py-2.5 px-3 text-left font-semibold border-r border-slate-800">Bar Mark</th>
+                            <th className="py-2.5 px-3 text-center font-semibold border-r border-slate-800 w-24">Dia</th>
+                            <th className="py-2.5 px-3 text-center font-semibold border-r border-slate-800 w-20">No.</th>
+                            <th className="py-2.5 px-3 text-right font-semibold border-r border-slate-800 w-28 whitespace-nowrap">Cut L (m)</th>
+                            <th className="py-2.5 px-3 text-right font-semibold border-r border-slate-800 w-32 whitespace-nowrap">Unit Wt</th>
+                            <th className="py-2.5 px-3 text-right font-semibold w-32 whitespace-nowrap">Total Wt (kg)</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-800/60">
+                        <tbody className="divide-y divide-slate-800/80">
                           {projectBBSData.items.map((it, idx) => (
-                            <tr key={`proj-item-${idx}`} className="hover:bg-slate-900/50 transition">
-                              <td className="py-2 px-3 text-cyan-300 font-bold">
-                                {it.member_id}
-                                <span className="text-[0.65rem] text-slate-400 block font-normal">{it.member_type}</span>
+                            <tr key={`proj-item-${idx}`} className="hover:bg-slate-900/60 transition-colors">
+                              <td className="py-2.5 px-3 border-r border-slate-800 whitespace-nowrap">
+                                <div className="text-cyan-300 font-bold text-sm tracking-wide">{it.member_id}</div>
+                                <span className="inline-block mt-0.5 px-1.5 py-0.2 bg-slate-800/90 border border-slate-700 rounded text-[0.65rem] text-slate-300 font-normal uppercase">
+                                  {it.member_type}
+                                </span>
                               </td>
-                              <td className="py-2 px-3 text-slate-200">
-                                <div>{it.bar_mark}</div>
-                                <div className="text-[0.65rem] text-slate-400 line-clamp-1">{it.shape_description}</div>
+                              <td className="py-2.5 px-3 text-slate-200 border-r border-slate-800">
+                                <div className="font-semibold text-slate-100">{it.bar_mark}</div>
+                                <div className="text-[0.65rem] text-slate-400 mt-0.5">{it.shape_description}</div>
                               </td>
-                              <td className="py-2 px-3 text-center text-cyan-400 font-bold">T{it.bar_diameter_mm}</td>
-                              <td className="py-2 px-3 text-center text-slate-300">{it.num_bars}</td>
-                              <td className="py-2 px-3 text-right">
+                              <td className="py-2.5 px-3 text-center border-r border-slate-800 whitespace-nowrap">
+                                <span className="inline-block px-2.5 py-0.5 rounded bg-cyan-950/80 border border-cyan-500/50 text-cyan-300 font-bold shadow-sm">
+                                  T{it.bar_diameter_mm}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 text-center border-r border-slate-800 whitespace-nowrap">
+                                <span className="inline-block px-2 py-0.5 rounded bg-slate-800/90 border border-slate-700 text-slate-200 font-bold">
+                                  {it.num_bars}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 text-right border-r border-slate-800 whitespace-nowrap">
                                 <span
-                                  className="clickable-qty text-emerald-400 font-bold"
+                                  className="clickable-qty text-emerald-400 font-bold cursor-pointer hover:underline"
                                   onClick={() =>
                                     setInspectItem({
                                       memberId: it.member_id,
@@ -2274,9 +2292,9 @@ export default function Home() {
                                   {it.cutting_length_m.toFixed(3)}
                                 </span>
                               </td>
-                              <td className="py-2 px-3 text-right">
+                              <td className="py-2.5 px-3 text-right border-r border-slate-800 whitespace-nowrap">
                                 <span
-                                  className="clickable-qty text-cyan-300"
+                                  className="clickable-qty text-cyan-300 cursor-pointer hover:underline"
                                   onClick={() =>
                                     setInspectItem({
                                       memberId: it.member_id,
@@ -2297,9 +2315,9 @@ export default function Home() {
                                   {it.unit_weight_kg_m.toFixed(2)}
                                 </span>
                               </td>
-                              <td className="py-2 px-3 text-right">
+                              <td className="py-2.5 px-3 text-right whitespace-nowrap">
                                 <span
-                                  className="clickable-qty text-amber-300 font-bold"
+                                  className="clickable-qty text-amber-300 font-bold cursor-pointer hover:underline"
                                   onClick={() =>
                                     setInspectItem({
                                       memberId: it.member_id,

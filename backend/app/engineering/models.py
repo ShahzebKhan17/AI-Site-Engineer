@@ -13,6 +13,10 @@ class ColumnBarRequest(BaseModel):
     bend_allowance_mm: float = Field(ge=0, default=0.0)
     lap_length_mm: float = Field(ge=0, default=0.0)
     has_lap_splice: bool = Field(default=False, description="Whether lap splice is required")
+    tie_bar_dia_mm: float = Field(default=8.0, gt=0, description="Column lateral tie / stirrup diameter in mm")
+    tie_spacing_mm: float | None = Field(default=None, description="Spacing of lateral ties in mm")
+    clear_cover_mm: float = Field(default=40.0, ge=0, description="Clear cover in mm per IS 456 Cl. 26.4.2.1")
+    include_ties: bool = Field(default=True, description="Whether to include lateral ties in BBS calculation")
     concrete_grade: str = Field(min_length=1)
     steel_grade: str = Field(min_length=1)
     source_references: list[str] = Field(min_length=1)
@@ -81,10 +85,9 @@ class BBSCalculationResult(BaseModel):
     @computed_field
     @property
     def breakdown(self) -> list[CalculationBreakdown]:
-        res: list[CalculationBreakdown] = []
-        for it in self.items:
-            res.extend(it.breakdown)
-        return res
+        if self.items:
+            return self.items[0].breakdown
+        return []
 
 
 class ColumnBarResult(BaseModel):
@@ -100,6 +103,13 @@ class ColumnBarResult(BaseModel):
     concrete_grade: str = "M25"
     num_bars: int = 4
     bar_diameter_mm: float = 16.0
+    tie_bar_dia_mm: float = 8.0
+    tie_spacing_mm: float = 150.0
+    num_ties: int = 0
+    tie_cutting_length_m: float = 0.0
+    tie_cutting_length_mm: float = 0.0
+    tie_breakdown: list[CalculationBreakdown] = Field(default_factory=list)
+    include_ties: bool = True
 
     def to_bbs_result(self, bar_diameter_mm: float | None = None, num_bars: int | None = None) -> BBSCalculationResult:
         from app.engineering.calculators.concrete import calculate_concrete_materials, DRY_VOLUME_FACTOR
@@ -123,6 +133,30 @@ class ColumnBarResult(BaseModel):
             breakdown=self.breakdown,
         )
 
+        items = [item]
+        total_weight = total_wt
+
+        if self.include_ties and self.num_ties > 0 and self.tie_cutting_length_m > 0:
+            unit_wt_tie = round((self.tie_bar_dia_mm ** 2) / 162.0, 3)
+            tot_tie_len = round(self.tie_cutting_length_m * self.num_ties, 3)
+            tot_tie_wt = round(unit_wt_tie * tot_tie_len, 2)
+            tie_item = BBSItem(
+                bar_mark="Lateral Ties / Stirrups",
+                bar_type="tie",
+                bar_diameter_mm=self.tie_bar_dia_mm,
+                num_bars=self.num_ties,
+                spacing_mm=self.tie_spacing_mm,
+                cutting_length_mm=self.tie_cutting_length_mm,
+                cutting_length_m=self.tie_cutting_length_m,
+                total_length_m=tot_tie_len,
+                unit_weight_kg_m=unit_wt_tie,
+                total_weight_kg=tot_tie_wt,
+                shape_description="Rectangular closed lateral tie with 135° seismic hooks (10d tails)",
+                breakdown=self.tie_breakdown,
+            )
+            items.append(tie_item)
+            total_weight = round(total_wt + tot_tie_wt, 2)
+
         c_grade = getattr(self, "concrete_grade", "M25")
         vol_m3 = getattr(self, "concrete_volume_m3", 0.0)
         if vol_m3 > 0:
@@ -137,8 +171,8 @@ class ColumnBarResult(BaseModel):
             member_type="COLUMN",
             total_cutting_length_m=self.cutting_length_m,
             total_cutting_length_mm=self.cutting_length_mm,
-            total_weight_kg=total_wt,
-            items=[item],
+            total_weight_kg=total_weight,
+            items=items,
             concrete_volume_m3=vol_m3 if vol_m3 > 0 else None,
             dry_volume_m3=dry_v,
             cement_bags=c_bags,

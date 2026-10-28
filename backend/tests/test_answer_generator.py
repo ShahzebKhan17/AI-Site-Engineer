@@ -124,3 +124,32 @@ def test_synthesize_answer_raft_rebar_schedule():
     # Must NOT dump title block sentences
     assert "PROJECT: G+8 RESIDENTIAL APARTMENTS" not in answer
     assert "All dimensions are in mm unless otherwise specified" not in answer
+
+
+def test_synthesize_answer_column_diameter_query():
+    chunk = RetrievedChunk(
+        chunk_id="col-chunk-1",
+        drawing_id="col-dwg",
+        content="REINFORCED CONCRETE COLUMN C-01. Main reinforcement: 8 bars Ø16 mm Fe500. Lateral ties: 8 mm dia @ 150 mm c/c. Clear cover 40 mm.",
+        page_number=1,
+        source_reference="Sheet S-02/Page 1",
+    )
+    extraction = ExtractionOutput(
+        member_id="C-01",
+        member_type="column",
+        confidence=1.0,
+        citations=["Sheet S-02/Page 1"],
+    )
+
+    answer = synthesize_engineering_answer(
+        question="what is the Diameter of the steel bars used in the column",
+        chunks=[chunk],
+        extraction=extraction,
+        calculation=None,
+        warnings=[],
+    )
+
+    assert "16 mm" in answer
+    assert "8 mm" in answer
+    assert "Main Longitudinal Bars" in answer or "Main Longitudinal Reinforcement" in answer
+    assert "Transverse Lateral Ties" in answer or "Lateral Ties" in answer

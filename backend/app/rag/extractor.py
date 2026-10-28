@@ -656,6 +656,27 @@ def regex_extract_drawing_dimensions(
             # Default to +300 mm if nothing is mentioned in drawing
             bend_allowance_val = 300.0
 
+        # Transverse lateral ties / stirrups extraction (e.g. "8mm @ 150 c/c", "T8 @ 150", "8 mm dia ties @ 200 mm", "ties: 8mm @ 150")
+        tie_match = re.search(
+            r"(?:ties|stirrups|links|lateral\s*ties)?\s*[:=]?\s*(?:Y|T|TOR|#|dia|Ø)?\s*(6|8|10|12)\s*(?:mm)?\s*(?:dia)?\s*[@at]\s*(\d{2,3})\s*(?:c/c|mm\s*c/c|mm\s*spacing)?",
+            text,
+            re.IGNORECASE,
+        )
+        tie_simple = re.search(
+            r"(?:ties|stirrups|links|lateral\s*ties)\s*[:=]?\s*(?:of|dia)?\s*(?:Y|T|TOR|#|dia|Ø)?\s*(6|8|10|12)\s*mm\b",
+            text,
+            re.IGNORECASE,
+        )
+        col_tie_dia = 8.0
+        col_tie_spacing = None
+        if tie_match and (tie_match.group(1) or tie_match.group(2)):
+            if tie_match.group(1):
+                col_tie_dia = float(tie_match.group(1))
+            if tie_match.group(2):
+                col_tie_spacing = float(tie_match.group(2))
+        elif tie_simple:
+            col_tie_dia = float(tie_simple.group(1))
+
         # Lap requirement: only if explicitly specified or if total length exceeds 12m
         has_lap = bool(re.search(r"\blap\b", text, re.IGNORECASE))
 
@@ -671,6 +692,8 @@ def regex_extract_drawing_dimensions(
                 top_extension_mm=0.0,
                 bend_allowance_mm=bend_allowance_val,
                 has_lap_splice=has_lap,
+                tie_bar_dia_mm=col_tie_dia,
+                tie_spacing_mm=col_tie_spacing,
                 concrete_grade=concrete_grade,
                 steel_grade=steel_grade,
                 source_references=citations_list,

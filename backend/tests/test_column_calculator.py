@@ -56,6 +56,15 @@ def test_column_c01_without_footing_embedment_and_lap() -> None:
     # Unit weight = 16^2 / 162 = 1.580 kg/m; Total weight = 26.144 * 1.580 = 41.31 kg
     assert bbs.items[0].total_weight_kg == 41.31
 
+    # Verify Item 2: Lateral ties (8mm dia)
+    assert len(bbs.items) == 2
+    tie_item = bbs.items[1]
+    assert tie_item.bar_mark == "Lateral Ties / Stirrups"
+    assert tie_item.bar_diameter_mm == 8.0
+    assert tie_item.num_bars > 0
+    assert tie_item.cutting_length_m > 0.0
+    assert tie_item.total_weight_kg > 0.0
+
 
 def test_column_custom_bend_allowance_20d() -> None:
     """Test Column with custom bend allowance of 20 times the diameter (20 * 16 = 320mm)."""
