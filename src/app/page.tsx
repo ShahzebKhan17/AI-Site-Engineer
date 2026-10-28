@@ -877,49 +877,43 @@ export default function Home() {
                     <span className="text-xs font-mono text-cyan-300 font-bold uppercase tracking-wider block mb-2">
                       STEP-BY-STEP ARITHMETIC BREAKDOWN (mm)
                     </span>
-                    <div className="overflow-x-auto rounded-lg border border-slate-700 bg-slate-950/90 shadow-md">
-                      <table className="w-full text-xs font-mono border-collapse">
+                    <div className="civil-table-wrapper" style={{ marginBottom: "0px" }}>
+                      <table className="civil-table" style={{ minWidth: "100%" }}>
                         <colgroup>
-                          <col className="w-[48%]" />
-                          <col className="w-[30%]" />
-                          <col className="w-[22%]" />
+                          <col style={{ width: "48%" }} />
+                          <col style={{ width: "28%" }} />
+                          <col style={{ width: "24%" }} />
                         </colgroup>
-                        <thead className="bg-slate-900 text-slate-300 border-b border-slate-700">
+                        <thead>
                           <tr>
-                            <th className="py-2.5 px-3.5 text-left font-bold uppercase tracking-wider text-[11px] border-r border-slate-800">
-                              Component / Provision
-                            </th>
-                            <th className="py-2.5 px-3.5 text-left font-bold uppercase tracking-wider text-[11px] border-r border-slate-800">
-                              Code Standard
-                            </th>
-                            <th className="py-2.5 px-3.5 text-right font-bold uppercase tracking-wider text-[11px]">
-                              Length (mm)
-                            </th>
+                            <th>Component / Provision</th>
+                            <th>Code Standard</th>
+                            <th className="text-right">Length (mm)</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-800">
+                        <tbody>
                           {inspectItem.breakdown.map((b, idx) => (
-                            <tr key={`insp-row-${idx}`} className="hover:bg-slate-900/40 transition-colors">
-                              <td className="py-2.5 px-3.5 text-slate-200 font-medium border-r border-slate-800">
+                            <tr key={`insp-row-${idx}`}>
+                              <td style={{ color: "#f8fafc", fontWeight: 600 }}>
                                 {b.label}
                               </td>
-                              <td className="py-2.5 px-3.5 border-r border-slate-800 whitespace-nowrap">
-                                <span className="inline-block px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-sky-400 text-[11px] font-semibold">
+                              <td>
+                                <span className="civil-clause-badge">
                                   {b.clause || "Drawing Detail"}
                                 </span>
                               </td>
-                              <td className={`py-2.5 px-3.5 text-right font-bold font-mono ${b.length_mm < 0 ? "text-rose-400" : "text-emerald-400"}`}>
+                              <td className="text-right" style={{ fontWeight: 700, color: b.length_mm < 0 ? "#fb7185" : "#34d399" }}>
                                 {b.length_mm > 0 ? `+${b.length_mm.toFixed(1)}` : b.length_mm.toFixed(1)}
                               </td>
                             </tr>
                           ))}
                         </tbody>
                         <tfoot>
-                          <tr className="bg-cyan-950/40 border-t-2 border-cyan-500/50 font-bold">
-                            <td className="py-2.5 px-3.5 text-cyan-300 uppercase tracking-wider text-[11px] border-r border-slate-800" colSpan={2}>
+                          <tr>
+                            <td colSpan={2}>
                               FINAL CUTTING LENGTH (mm)
                             </td>
-                            <td className="py-2.5 px-3.5 text-right text-cyan-300 text-sm font-bold font-mono">
+                            <td className="text-right" style={{ color: "#00e5ff", fontSize: "0.88rem", fontWeight: 800 }}>
                               {inspectItem.cuttingLengthMm.toFixed(1)} mm ({inspectItem.cuttingLengthM.toFixed(3)} m)
                             </td>
                           </tr>
@@ -953,73 +947,69 @@ export default function Home() {
                     <span className="text-xs font-mono text-cyan-300 font-bold uppercase tracking-wider block mb-2">
                       UNIT WEIGHT DERIVATION AUDIT TABLE
                     </span>
-                    <div className="overflow-x-auto rounded-lg border border-slate-700 bg-slate-950/90 shadow-md">
-                      <table className="w-full text-xs font-mono border-collapse">
+                    <div className="civil-table-wrapper" style={{ marginBottom: "0px" }}>
+                      <table className="civil-table" style={{ minWidth: "100%" }}>
                         <colgroup>
-                          <col className="w-[45%]" />
-                          <col className="w-[30%]" />
-                          <col className="w-[25%]" />
+                          <col style={{ width: "45%" }} />
+                          <col style={{ width: "30%" }} />
+                          <col style={{ width: "25%" }} />
                         </colgroup>
-                        <thead className="bg-slate-900 text-slate-300 border-b border-slate-700">
+                        <thead>
                           <tr>
-                            <th className="py-2.5 px-3.5 text-left font-bold uppercase tracking-wider text-[11px] border-r border-slate-800">
-                              Parameter / Derivation Step
-                            </th>
-                            <th className="py-2.5 px-3.5 text-left font-bold uppercase tracking-wider text-[11px] border-r border-slate-800">
-                              Standard / Formula
-                            </th>
-                            <th className="py-2.5 px-3.5 text-right font-bold uppercase tracking-wider text-[11px]">
-                              Value
-                            </th>
+                            <th>Parameter / Derivation Step</th>
+                            <th>Standard / Formula</th>
+                            <th className="text-right">Value</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-800">
-                          <tr className="hover:bg-slate-900/40 transition-colors">
-                            <td className="py-2.5 px-3.5 text-slate-200 font-medium border-r border-slate-800">
+                        <tbody>
+                          <tr>
+                            <td style={{ color: "#f8fafc", fontWeight: 600 }}>
                               Nominal Rebar Diameter (d)
                             </td>
-                            <td className="py-2.5 px-3.5 border-r border-slate-800">
-                              <span className="inline-block px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-sky-400 text-[11px] font-semibold">
+                            <td>
+                              <span className="civil-clause-badge">
                                 Drawing Schedule
                               </span>
                             </td>
-                            <td className="py-2.5 px-3.5 text-right font-bold text-cyan-300">
-                              {inspectItem.diameter} mm (T{inspectItem.diameter})
+                            <td className="text-right">
+                              <span className="civil-dia-badge">
+                                T{inspectItem.diameter} ({inspectItem.diameter} mm)
+                              </span>
                             </td>
                           </tr>
-                          <tr className="hover:bg-slate-900/40 transition-colors">
-                            <td className="py-2.5 px-3.5 text-slate-200 font-medium border-r border-slate-800">
+                          <tr>
+                            <td style={{ color: "#f8fafc", fontWeight: 600 }}>
                               Standard Density of Steel
                             </td>
-                            <td className="py-2.5 px-3.5 border-r border-slate-800">
-                              <span className="inline-block px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-sky-400 text-[11px] font-semibold">
+                            <td>
+                              <span className="civil-clause-badge">
                                 IS 1786 Cl. 6.2
                               </span>
                             </td>
-                            <td className="py-2.5 px-3.5 text-right font-bold text-slate-300">
+                            <td className="text-right" style={{ color: "#cbd5e1", fontWeight: 700 }}>
                               7850 kg/m³
                             </td>
                           </tr>
-                          <tr className="hover:bg-slate-900/40 transition-colors">
-                            <td className="py-2.5 px-3.5 text-slate-200 font-medium border-r border-slate-800">
+                          <tr>
+                            <td style={{ color: "#f8fafc", fontWeight: 600 }}>
                               Unit Weight Equation
                             </td>
-                            <td className="py-2.5 px-3.5 border-r border-slate-800">
-                              <span className="inline-block px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-sky-400 text-[11px] font-semibold">
+                            <td>
+                              <span className="civil-clause-badge">
                                 d² / 162
                               </span>
                             </td>
-                            <td className="py-2.5 px-3.5 text-right text-slate-300 font-mono">
+                            <td className="text-right" style={{ color: "#cbd5e1", fontFamily: "var(--font-mono)" }}>
                               ({inspectItem.diameter})² / 162
                             </td>
                           </tr>
                         </tbody>
                         <tfoot>
-                          <tr className="bg-cyan-950/40 border-t-2 border-cyan-500/50 font-bold">
-                            <td className="py-2.5 px-3.5 text-cyan-300 uppercase tracking-wider text-[11px] border-r border-slate-800" colSpan={2}>
+                          <tr>
+                            <td colSpan={2}>
                               COMPUTED UNIT WEIGHT (kg/m)
                             </td>
-                            <td className="py-2.5 px-3.5 text-right text-amber-300 text-sm font-bold font-mono">
+                            <td className="text-right" style={{ color: "#38bdf8", fontSize: "0.88rem", fontWeight: 800 }}>
                               {inspectItem.unitWeight.toFixed(3)} kg/m
                             </td>
                           </tr>
@@ -1045,73 +1035,69 @@ export default function Home() {
                     <span className="text-xs font-mono text-cyan-300 font-bold uppercase tracking-wider block mb-2">
                       WEIGHT MULTIPLICATION AUDIT TABLE
                     </span>
-                    <div className="overflow-x-auto rounded-lg border border-slate-700 bg-slate-950/90 shadow-md">
-                      <table className="w-full text-xs font-mono border-collapse">
+                    <div className="civil-table-wrapper" style={{ marginBottom: "0px" }}>
+                      <table className="civil-table" style={{ minWidth: "100%" }}>
                         <colgroup>
-                          <col className="w-[45%]" />
-                          <col className="w-[30%]" />
-                          <col className="w-[25%]" />
+                          <col style={{ width: "45%" }} />
+                          <col style={{ width: "30%" }} />
+                          <col style={{ width: "25%" }} />
                         </colgroup>
-                        <thead className="bg-slate-900 text-slate-300 border-b border-slate-700">
+                        <thead>
                           <tr>
-                            <th className="py-2.5 px-3.5 text-left font-bold uppercase tracking-wider text-[11px] border-r border-slate-800">
-                              Quantity Component
-                            </th>
-                            <th className="py-2.5 px-3.5 text-left font-bold uppercase tracking-wider text-[11px] border-r border-slate-800">
-                              Derivation Source
-                            </th>
-                            <th className="py-2.5 px-3.5 text-right font-bold uppercase tracking-wider text-[11px]">
-                              Value
-                            </th>
+                            <th>Quantity Component</th>
+                            <th>Derivation Source</th>
+                            <th className="text-right">Value</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-800">
-                          <tr className="hover:bg-slate-900/40 transition-colors">
-                            <td className="py-2.5 px-3.5 text-slate-200 font-medium border-r border-slate-800">
+                        <tbody>
+                          <tr>
+                            <td style={{ color: "#f8fafc", fontWeight: 600 }}>
                               Single Bar Cutting Length
                             </td>
-                            <td className="py-2.5 px-3.5 border-r border-slate-800">
-                              <span className="inline-block px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-sky-400 text-[11px] font-semibold">
+                            <td>
+                              <span className="civil-clause-badge">
                                 IS 456 Ld + Span
                               </span>
                             </td>
-                            <td className="py-2.5 px-3.5 text-right font-bold text-emerald-400">
+                            <td className="text-right" style={{ color: "#34d399", fontWeight: 700 }}>
                               {inspectItem.cuttingLengthM.toFixed(3)} m
                             </td>
                           </tr>
-                          <tr className="hover:bg-slate-900/40 transition-colors">
-                            <td className="py-2.5 px-3.5 text-slate-200 font-medium border-r border-slate-800">
+                          <tr>
+                            <td style={{ color: "#f8fafc", fontWeight: 600 }}>
                               Rebar Unit Weight (T{inspectItem.diameter})
                             </td>
-                            <td className="py-2.5 px-3.5 border-r border-slate-800">
-                              <span className="inline-block px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-sky-400 text-[11px] font-semibold">
+                            <td>
+                              <span className="civil-clause-badge">
                                 d² / 162
                               </span>
                             </td>
-                            <td className="py-2.5 px-3.5 text-right font-bold text-cyan-300">
+                            <td className="text-right" style={{ color: "#38bdf8", fontWeight: 700 }}>
                               {inspectItem.unitWeight.toFixed(3)} kg/m
                             </td>
                           </tr>
-                          <tr className="hover:bg-slate-900/40 transition-colors">
-                            <td className="py-2.5 px-3.5 text-slate-200 font-medium border-r border-slate-800">
+                          <tr>
+                            <td style={{ color: "#f8fafc", fontWeight: 600 }}>
                               Total Number of Bars
                             </td>
-                            <td className="py-2.5 px-3.5 border-r border-slate-800">
-                              <span className="inline-block px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-sky-400 text-[11px] font-semibold">
+                            <td>
+                              <span className="civil-clause-badge">
                                 Reinforcement Schedule
                               </span>
                             </td>
-                            <td className="py-2.5 px-3.5 text-right font-bold text-slate-200">
-                              {inspectItem.numBars} Nos
+                            <td className="text-right">
+                              <span className="civil-qty-badge">
+                                {inspectItem.numBars} Nos
+                              </span>
                             </td>
                           </tr>
                         </tbody>
                         <tfoot>
-                          <tr className="bg-cyan-950/40 border-t-2 border-cyan-500/50 font-bold">
-                            <td className="py-2.5 px-3.5 text-cyan-300 uppercase tracking-wider text-[11px] border-r border-slate-800" colSpan={2}>
+                          <tr>
+                            <td colSpan={2}>
                               TOTAL REBAR WEIGHT (kg)
                             </td>
-                            <td className="py-2.5 px-3.5 text-right text-amber-300 text-sm font-bold font-mono">
+                            <td className="text-right" style={{ color: "#fcd34d", fontSize: "0.88rem", fontWeight: 800 }}>
                               {inspectItem.totalWeight.toFixed(2)} kg
                             </td>
                           </tr>
@@ -2204,38 +2190,51 @@ export default function Home() {
                     <span className="text-xs font-mono text-cyan-300 font-bold uppercase tracking-wider block mb-2">
                       BAR BENDING SCHEDULE ITEMS ({activeResult.items.length})
                     </span>
-                    <div className="overflow-x-auto rounded-lg border border-slate-700/80 bg-slate-950/80 shadow-inner">
-                      <table className="w-full text-xs font-mono border-collapse">
-                        <thead className="bg-slate-900 text-slate-300 border-b border-slate-700">
+                    <div className="civil-table-wrapper">
+                      <table className="civil-table">
+                        <colgroup>
+                          <col style={{ width: "38%" }} />
+                          <col style={{ width: "12%" }} />
+                          <col style={{ width: "10%" }} />
+                          <col style={{ width: "13%" }} />
+                          <col style={{ width: "13%" }} />
+                          <col style={{ width: "14%" }} />
+                        </colgroup>
+                        <thead>
                           <tr>
-                            <th className="py-2.5 px-3 text-left font-semibold border-r border-slate-800">Bar Mark</th>
-                            <th className="py-2.5 px-3 text-center font-semibold border-r border-slate-800 w-24">Dia</th>
-                            <th className="py-2.5 px-3 text-center font-semibold border-r border-slate-800 w-20">No.</th>
-                            <th className="py-2.5 px-3 text-right font-semibold border-r border-slate-800 w-28 whitespace-nowrap">Cut L (m)</th>
-                            <th className="py-2.5 px-3 text-right font-semibold border-r border-slate-800 w-32 whitespace-nowrap">Unit Wt (kg/m)</th>
-                            <th className="py-2.5 px-3 text-right font-semibold w-32 whitespace-nowrap">Total Wt (kg)</th>
+                            <th>Bar Mark &amp; Reinforcement Details</th>
+                            <th className="text-center">Dia</th>
+                            <th className="text-center">No.</th>
+                            <th className="text-right">Cut L (m)</th>
+                            <th className="text-right">Unit Wt (kg/m)</th>
+                            <th className="text-right">Total Wt (kg)</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-800/80">
+                        <tbody>
                           {activeResult.items.map((item, idx) => (
-                            <tr key={`item-${idx}`} className="hover:bg-slate-900/60 transition-colors">
-                              <td className="py-2.5 px-3 text-slate-200 border-r border-slate-800">
-                                <div className="font-semibold text-slate-100">{item.bar_mark}</div>
-                                <div className="text-[0.65rem] text-slate-400 mt-0.5">{item.shape_description}</div>
+                            <tr key={`item-${idx}`}>
+                              <td>
+                                <div style={{ fontWeight: 700, color: "#f8fafc", fontSize: "0.82rem" }}>
+                                  {item.bar_mark}
+                                </div>
+                                <div style={{ fontSize: "0.7rem", color: "#94a3b8", marginTop: "3px", lineHeight: "1.4", wordBreak: "break-word" }}>
+                                  {item.shape_description}
+                                </div>
                               </td>
-                              <td className="py-2.5 px-3 text-center border-r border-slate-800 whitespace-nowrap">
-                                <span className="inline-block px-2.5 py-0.5 rounded bg-cyan-950/80 border border-cyan-500/50 text-cyan-300 font-bold shadow-sm">
+                              <td className="text-center">
+                                <span className="civil-dia-badge">
                                   T{item.bar_diameter_mm}
                                 </span>
                               </td>
-                              <td className="py-2.5 px-3 text-center border-r border-slate-800 whitespace-nowrap">
-                                <span className="inline-block px-2 py-0.5 rounded bg-slate-800/90 border border-slate-700 text-slate-200 font-bold">
+                              <td className="text-center">
+                                <span className="civil-qty-badge">
                                   {item.num_bars}
                                 </span>
                               </td>
-                              <td className="py-2.5 px-3 text-right border-r border-slate-800 whitespace-nowrap">
+                              <td className="text-right">
                                 <span
-                                  className="clickable-qty text-emerald-400 font-bold cursor-pointer hover:underline"
+                                  className="clickable-qty"
+                                  style={{ color: "#34d399", fontWeight: 700 }}
                                   onClick={() =>
                                     setInspectItem({
                                       memberId: activeResult.memberId,
@@ -2256,9 +2255,10 @@ export default function Home() {
                                   {item.cutting_length_m.toFixed(3)}
                                 </span>
                               </td>
-                              <td className="py-2.5 px-3 text-right border-r border-slate-800 whitespace-nowrap">
+                              <td className="text-right">
                                 <span
-                                  className="clickable-qty text-cyan-300 cursor-pointer hover:underline"
+                                  className="clickable-qty"
+                                  style={{ color: "#38bdf8" }}
                                   onClick={() =>
                                     setInspectItem({
                                       memberId: activeResult.memberId,
@@ -2279,9 +2279,10 @@ export default function Home() {
                                   {item.unit_weight_kg_m.toFixed(2)}
                                 </span>
                               </td>
-                              <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                              <td className="text-right">
                                 <span
-                                  className="clickable-qty text-amber-300 font-bold cursor-pointer hover:underline"
+                                  className="clickable-qty"
+                                  style={{ color: "#fcd34d", fontWeight: 700 }}
                                   onClick={() =>
                                     setInspectItem({
                                       memberId: activeResult.memberId,
@@ -2314,49 +2315,41 @@ export default function Home() {
                 <span className="text-xs font-mono text-cyan-300 font-bold uppercase tracking-wider block mb-2">
                   ARITHMETIC BREAKDOWN &amp; CODE PROVISIONS
                 </span>
-                <div className="overflow-x-auto rounded-lg border border-slate-700 bg-slate-950/90 shadow-md">
-                  <table className="w-full text-xs font-mono border-collapse">
+                <div className="civil-table-wrapper">
+                  <table className="civil-table">
                     <colgroup>
-                      <col className="w-[48%]" />
-                      <col className="w-[30%]" />
-                      <col className="w-[22%]" />
+                      <col style={{ width: "50%" }} />
+                      <col style={{ width: "28%" }} />
+                      <col style={{ width: "22%" }} />
                     </colgroup>
-                    <thead className="bg-slate-900 text-slate-300 border-b border-slate-700">
+                    <thead>
                       <tr>
-                        <th className="py-2.5 px-3.5 text-left font-bold uppercase tracking-wider text-[11px] border-r border-slate-800">
-                          Component / Provision
-                        </th>
-                        <th className="py-2.5 px-3.5 text-left font-bold uppercase tracking-wider text-[11px] border-r border-slate-800">
-                          Clause / Standard
-                        </th>
-                        <th className="py-2.5 px-3.5 text-right font-bold uppercase tracking-wider text-[11px]">
-                          Length (mm)
-                        </th>
+                        <th>Component / Provision</th>
+                        <th>Clause / Standard</th>
+                        <th className="text-right">Length (mm)</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800">
+                    <tbody>
                       {activeResult.breakdown.map((row, idx) => (
-                        <tr key={`calc-row-${idx}`} className="hover:bg-slate-900/40 transition-colors">
-                          <td className="py-2.5 px-3.5 text-slate-200 font-medium border-r border-slate-800">
-                            {row.label}
-                          </td>
-                          <td className="py-2.5 px-3.5 border-r border-slate-800 whitespace-nowrap">
-                            <span className="inline-block px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-sky-400 text-[11px] font-semibold">
+                        <tr key={`calc-row-${idx}`}>
+                          <td style={{ color: "#f8fafc", fontWeight: 600 }}>{row.label}</td>
+                          <td>
+                            <span className="civil-clause-badge">
                               {row.clause || "Drawing Detail"}
                             </span>
                           </td>
-                          <td className={`py-2.5 px-3.5 text-right font-bold font-mono ${row.length_mm < 0 ? "text-rose-400" : "text-emerald-400"}`}>
+                          <td className="text-right" style={{ fontWeight: 700, color: row.length_mm < 0 ? "#fb7185" : "#34d399" }}>
                             {row.length_mm > 0 ? `+${row.length_mm.toFixed(1)}` : row.length_mm.toFixed(1)}
                           </td>
                         </tr>
                       ))}
                     </tbody>
                     <tfoot>
-                      <tr className="border-t-2 border-cyan-500/50 bg-cyan-950/40 font-bold">
-                        <td className="py-2.5 px-3.5 text-cyan-300 uppercase tracking-wider text-[11px] border-r border-slate-800" colSpan={2}>
+                      <tr>
+                        <td colSpan={2}>
                           TOTAL CUTTING LENGTH (DETERMINISTIC SUM)
                         </td>
-                        <td className="py-2.5 px-3.5 text-right text-cyan-300 text-sm font-bold font-mono">
+                        <td className="text-right" style={{ color: "#00e5ff", fontSize: "0.88rem", fontWeight: 800 }}>
                           {activeResult.cuttingLengthMm.toFixed(1)} mm
                         </td>
                       </tr>
@@ -2552,49 +2545,59 @@ export default function Home() {
                       </div>
                     </div>
 
-                    <div className="overflow-x-auto rounded-lg border border-slate-700/80 bg-slate-950/80 shadow-inner">
-                      <div className="text-[0.75rem] font-mono text-cyan-400 uppercase tracking-wider p-3 bg-slate-900/90 border-b border-slate-700 flex justify-between items-center">
+                    <div className="civil-table-wrapper">
+                      <div className="text-[0.75rem] font-mono text-cyan-400 uppercase tracking-wider p-3 bg-[#091e3d] border-b border-[rgba(0,229,255,0.35)] flex justify-between items-center">
                         <span className="font-bold">DETAILED PROJECT BAR BENDING SCHEDULE ({projectBBSData.items.length} LINE ITEMS)</span>
                         <span className="text-slate-400 font-normal">Click any quantity to inspect formula</span>
                       </div>
-                      <table className="w-full text-xs font-mono border-collapse">
-                        <thead className="bg-slate-900/90 text-cyan-300 border-b border-slate-700">
+                      <table className="civil-table" style={{ minWidth: "750px" }}>
+                        <colgroup>
+                          <col style={{ width: "16%" }} />
+                          <col style={{ width: "30%" }} />
+                          <col style={{ width: "10%" }} />
+                          <col style={{ width: "9%" }} />
+                          <col style={{ width: "11%" }} />
+                          <col style={{ width: "11%" }} />
+                          <col style={{ width: "13%" }} />
+                        </colgroup>
+                        <thead>
                           <tr>
-                            <th className="py-2.5 px-3 text-left font-semibold border-r border-slate-800 w-32 whitespace-nowrap">Member</th>
-                            <th className="py-2.5 px-3 text-left font-semibold border-r border-slate-800">Bar Mark</th>
-                            <th className="py-2.5 px-3 text-center font-semibold border-r border-slate-800 w-24">Dia</th>
-                            <th className="py-2.5 px-3 text-center font-semibold border-r border-slate-800 w-20">No.</th>
-                            <th className="py-2.5 px-3 text-right font-semibold border-r border-slate-800 w-28 whitespace-nowrap">Cut L (m)</th>
-                            <th className="py-2.5 px-3 text-right font-semibold border-r border-slate-800 w-32 whitespace-nowrap">Unit Wt</th>
-                            <th className="py-2.5 px-3 text-right font-semibold w-32 whitespace-nowrap">Total Wt (kg)</th>
+                            <th>Member</th>
+                            <th>Bar Mark &amp; Details</th>
+                            <th className="text-center">Dia</th>
+                            <th className="text-center">No.</th>
+                            <th className="text-right">Cut L (m)</th>
+                            <th className="text-right">Unit Wt (kg/m)</th>
+                            <th className="text-right">Total Wt (kg)</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-800/80">
+                        <tbody>
                           {projectBBSData.items.map((it, idx) => (
-                            <tr key={`proj-item-${idx}`} className="hover:bg-slate-900/60 transition-colors">
-                              <td className="py-2.5 px-3 border-r border-slate-800 whitespace-nowrap">
+                            <tr key={`proj-item-${idx}`}>
+                              <td>
                                 <div className="text-cyan-300 font-bold text-sm tracking-wide">{it.member_id}</div>
                                 <span className="inline-block mt-0.5 px-1.5 py-0.2 bg-slate-800/90 border border-slate-700 rounded text-[0.65rem] text-slate-300 font-normal uppercase">
                                   {it.member_type}
                                 </span>
                               </td>
-                              <td className="py-2.5 px-3 text-slate-200 border-r border-slate-800">
-                                <div className="font-semibold text-slate-100">{it.bar_mark}</div>
-                                <div className="text-[0.65rem] text-slate-400 mt-0.5">{it.shape_description}</div>
+                              <td>
+                                <div style={{ fontWeight: 700, color: "#f8fafc", fontSize: "0.82rem" }}>{it.bar_mark}</div>
+                                <div style={{ fontSize: "0.7rem", color: "#94a3b8", marginTop: "3px", lineHeight: "1.4", wordBreak: "break-word" }}>{it.shape_description}</div>
                               </td>
-                              <td className="py-2.5 px-3 text-center border-r border-slate-800 whitespace-nowrap">
-                                <span className="inline-block px-2.5 py-0.5 rounded bg-cyan-950/80 border border-cyan-500/50 text-cyan-300 font-bold shadow-sm">
+                              <td className="text-center">
+                                <span className="civil-dia-badge">
                                   T{it.bar_diameter_mm}
                                 </span>
                               </td>
-                              <td className="py-2.5 px-3 text-center border-r border-slate-800 whitespace-nowrap">
-                                <span className="inline-block px-2 py-0.5 rounded bg-slate-800/90 border border-slate-700 text-slate-200 font-bold">
+                              <td className="text-center">
+                                <span className="civil-qty-badge">
                                   {it.num_bars}
                                 </span>
                               </td>
-                              <td className="py-2.5 px-3 text-right border-r border-slate-800 whitespace-nowrap">
+                              <td className="text-right">
                                 <span
-                                  className="clickable-qty text-emerald-400 font-bold cursor-pointer hover:underline"
+                                  className="clickable-qty"
+                                  style={{ color: "#34d399", fontWeight: 700 }}
                                   onClick={() =>
                                     setInspectItem({
                                       memberId: it.member_id,
@@ -2615,9 +2618,10 @@ export default function Home() {
                                   {it.cutting_length_m.toFixed(3)}
                                 </span>
                               </td>
-                              <td className="py-2.5 px-3 text-right border-r border-slate-800 whitespace-nowrap">
+                              <td className="text-right">
                                 <span
-                                  className="clickable-qty text-cyan-300 cursor-pointer hover:underline"
+                                  className="clickable-qty"
+                                  style={{ color: "#38bdf8" }}
                                   onClick={() =>
                                     setInspectItem({
                                       memberId: it.member_id,
@@ -2638,9 +2642,10 @@ export default function Home() {
                                   {it.unit_weight_kg_m.toFixed(2)}
                                 </span>
                               </td>
-                              <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                              <td className="text-right">
                                 <span
-                                  className="clickable-qty text-amber-300 font-bold cursor-pointer hover:underline"
+                                  className="clickable-qty"
+                                  style={{ color: "#fcd34d", fontWeight: 700 }}
                                   onClick={() =>
                                     setInspectItem({
                                       memberId: it.member_id,

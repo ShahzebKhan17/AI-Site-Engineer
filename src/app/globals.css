@@ -986,4 +986,127 @@ body {
   word-break: break-all;
 }
 
+/* ==========================================================================
+   ENGINEERED CIVIL BBS & CALCULATION TABLES (Bulletproof Visual Grid)
+   ========================================================================== */
+
+.civil-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 229, 255, 0.45);
+  background: #030a16 !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.8), inset 0 0 15px rgba(0, 229, 255, 0.05);
+  margin-bottom: 20px;
+}
+
+.civil-table {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse !important;
+  border-spacing: 0 !important;
+  table-layout: fixed;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: #e2e8f0;
+  background: #030a16 !important;
+}
+
+.civil-table th {
+  background: #091e3d !important;
+  color: #38bdf8 !important;
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 11px 14px !important;
+  border: 1px solid rgba(0, 229, 255, 0.35) !important;
+  text-align: left;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.civil-table th.text-center {
+  text-align: center !important;
+}
+
+.civil-table th.text-right {
+  text-align: right !important;
+}
+
+.civil-table td {
+  padding: 10px 14px !important;
+  border: 1px solid rgba(0, 229, 255, 0.22) !important;
+  vertical-align: middle;
+  background: transparent;
+}
+
+.civil-table tbody tr {
+  background: #06152a !important;
+  transition: background 0.15s ease;
+}
+
+.civil-table tbody tr:nth-child(even) {
+  background: #040f1f !important;
+}
+
+.civil-table tbody tr:hover {
+  background: rgba(0, 229, 255, 0.12) !important;
+}
+
+.civil-table tfoot tr {
+  background: #092042 !important;
+  font-weight: 700;
+  border-top: 2px solid #00e5ff !important;
+  color: #00e5ff !important;
+}
+
+.civil-table tfoot td {
+  border: 1px solid rgba(0, 229, 255, 0.35) !important;
+  padding: 11px 14px !important;
+}
+
+/* Distinct Dia & Quantity Badges */
+.civil-dia-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 4px;
+  background: rgba(0, 229, 255, 0.18) !important;
+  border: 1px solid #00e5ff !important;
+  color: #00e5ff !important;
+  font-weight: 800;
+  font-size: 0.78rem;
+  font-family: var(--font-mono);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.civil-qty-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.35) !important;
+  color: #f8fafc !important;
+  font-weight: 800;
+  font-size: 0.78rem;
+  font-family: var(--font-mono);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.civil-clause-badge {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 4px;
+  background: rgba(14, 165, 233, 0.18) !important;
+  border: 1px solid rgba(14, 165, 233, 0.45) !important;
+  color: #38bdf8 !important;
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+
 
