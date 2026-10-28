@@ -106,6 +106,9 @@ class ParameterCalculationRequest(BaseModel):
     main_bar_diameter_mm: float = 16.0
     secondary_bar_diameter_mm: float | None = 8.0
     spacing_mm: float | None = 150.0
+    tie_spacing_end_mm: float | None = None
+    end_zone_length_mm: float | None = None
+    tie_spacing_mid_mm: float | None = None
     concrete_grade: str = "M25"
     steel_grade: str = "FE500"
     citations: list[str] = Field(default_factory=list)
@@ -123,6 +126,12 @@ def calculate_from_reviewed_parameters(request: ParameterCalculationRequest) -> 
         footing_embedment = float(dims.get("footing_embedment_mm", 0.0))
         bend_allowance = float(dims.get("bend_allowance_mm", 0.0))
         has_lap = bool(dims.get("has_lap_splice", False))
+
+        tie_spacing_end = request.tie_spacing_end_mm or dims.get("tie_spacing_end_mm")
+        end_zone_len = request.end_zone_length_mm or dims.get("end_zone_length_mm")
+        tie_spacing_mid = request.tie_spacing_mid_mm or dims.get("tie_spacing_mid_mm")
+        single_spacing = request.spacing_mm or dims.get("spacing_mm") or dims.get("tie_spacing_mm")
+
         col_req = ColumnBarRequest(
             member_id=request.member_id,
             bar_diameter_mm=request.main_bar_diameter_mm,
@@ -134,6 +143,11 @@ def calculate_from_reviewed_parameters(request: ParameterCalculationRequest) -> 
             top_extension_mm=dims.get("top_extension_mm", 0.0),
             bend_allowance_mm=bend_allowance,
             has_lap_splice=has_lap,
+            tie_bar_dia_mm=request.secondary_bar_diameter_mm or 8.0,
+            tie_spacing_mm=single_spacing,
+            tie_spacing_end_mm=tie_spacing_end,
+            end_zone_length_mm=end_zone_len,
+            tie_spacing_mid_mm=tie_spacing_mid,
             concrete_grade=request.concrete_grade,
             steel_grade=request.steel_grade,
             source_references=citations,

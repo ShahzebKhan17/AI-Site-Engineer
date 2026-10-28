@@ -15,6 +15,9 @@ class ColumnBarRequest(BaseModel):
     has_lap_splice: bool = Field(default=False, description="Whether lap splice is required")
     tie_bar_dia_mm: float = Field(default=8.0, gt=0, description="Column lateral tie / stirrup diameter in mm")
     tie_spacing_mm: float | None = Field(default=None, description="Spacing of lateral ties in mm")
+    tie_spacing_end_mm: float | None = Field(default=None, description="Spacing of lateral ties in confining/end zones in mm")
+    end_zone_length_mm: float | None = Field(default=None, description="Length of confining/end zone at each end in mm")
+    tie_spacing_mid_mm: float | None = Field(default=None, description="Spacing of lateral ties in middle zone in mm")
     clear_cover_mm: float = Field(default=40.0, ge=0, description="Clear cover in mm per IS 456 Cl. 26.4.2.1")
     include_ties: bool = Field(default=True, description="Whether to include lateral ties in BBS calculation")
     concrete_grade: str = Field(min_length=1)
@@ -105,6 +108,9 @@ class ColumnBarResult(BaseModel):
     bar_diameter_mm: float = 16.0
     tie_bar_dia_mm: float = 8.0
     tie_spacing_mm: float = 150.0
+    tie_spacing_end_mm: float | None = None
+    end_zone_length_mm: float | None = None
+    tie_spacing_mid_mm: float | None = None
     num_ties: int = 0
     tie_cutting_length_m: float = 0.0
     tie_cutting_length_mm: float = 0.0
@@ -140,6 +146,15 @@ class ColumnBarResult(BaseModel):
             unit_wt_tie = round((self.tie_bar_dia_mm ** 2) / 162.0, 3)
             tot_tie_len = round(self.tie_cutting_length_m * self.num_ties, 3)
             tot_tie_wt = round(unit_wt_tie * tot_tie_len, 2)
+            if self.tie_spacing_end_mm and self.end_zone_length_mm:
+                shape_desc = (
+                    f"Rectangular closed tie with 135° seismic hooks — "
+                    f"Ends: {self.tie_spacing_end_mm:.0f}mm c/c (2x{self.end_zone_length_mm:.0f}mm), "
+                    f"Mid: {self.tie_spacing_mid_mm or self.tie_spacing_mm:.0f}mm c/c"
+                )
+            else:
+                shape_desc = "Rectangular closed lateral tie with 135° seismic hooks (10d tails)"
+
             tie_item = BBSItem(
                 bar_mark="Lateral Ties / Stirrups",
                 bar_type="tie",
@@ -151,7 +166,7 @@ class ColumnBarResult(BaseModel):
                 total_length_m=tot_tie_len,
                 unit_weight_kg_m=unit_wt_tie,
                 total_weight_kg=tot_tie_wt,
-                shape_description="Rectangular closed lateral tie with 135° seismic hooks (10d tails)",
+                shape_description=shape_desc,
                 breakdown=self.tie_breakdown,
             )
             items.append(tie_item)

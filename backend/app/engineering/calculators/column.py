@@ -94,11 +94,33 @@ def calculate_longitudinal_bar(request: ColumnBarRequest) -> ColumnBarResult:
     cover = request.clear_cover_mm if request.clear_cover_mm is not None else 40.0
     tie_dia = request.tie_bar_dia_mm or 8.0
 
-    max_code_pitch = min(col_w, col_d, 16.0 * request.bar_diameter_mm, 300.0)
-    actual_pitch = request.tie_spacing_mm if (request.tie_spacing_mm and request.tie_spacing_mm > 0) else max_code_pitch
-    actual_pitch = min(actual_pitch, max_code_pitch)
+    has_dual_zone = bool(
+        request.tie_spacing_end_mm and request.tie_spacing_end_mm > 0
+        and request.end_zone_length_mm and request.end_zone_length_mm > 0
+    )
 
-    num_ties = int(math.floor(request.storey_height_mm / actual_pitch)) + 1 if actual_pitch > 0 else 0
+    if has_dual_zone:
+        end_len = request.end_zone_length_mm or 300.0
+        end_pitch = request.tie_spacing_end_mm or 100.0
+        mid_pitch = request.tie_spacing_mid_mm or request.tie_spacing_mm or 150.0
+
+        if (2.0 * end_len) < request.storey_height_mm:
+            mid_len = request.storey_height_mm - (2.0 * end_len)
+            ties_each_end = int(round(end_len / end_pitch))
+            ties_mid = int(round(mid_len / mid_pitch))
+            num_ties = (2 * ties_each_end) + ties_mid
+            actual_pitch = mid_pitch
+        else:
+            mid_len = 0.0
+            ties_each_end = int(math.floor(request.storey_height_mm / end_pitch)) + 1
+            ties_mid = 0
+            num_ties = ties_each_end
+            actual_pitch = end_pitch
+    else:
+        max_code_pitch = min(col_w, col_d, 16.0 * request.bar_diameter_mm, 300.0)
+        actual_pitch = request.tie_spacing_mm if (request.tie_spacing_mm and request.tie_spacing_mm > 0) else max_code_pitch
+        actual_pitch = min(actual_pitch, max_code_pitch)
+        num_ties = int(math.floor(request.storey_height_mm / actual_pitch)) + 1 if actual_pitch > 0 else 0
 
     w_core = max(50.0, col_w - (2.0 * cover))
     d_core = max(50.0, col_d - (2.0 * cover))
@@ -117,7 +139,17 @@ def calculate_longitudinal_bar(request: ColumnBarRequest) -> ColumnBarResult:
         tie_breakdown.append(CalculationBreakdown(label="Bend deductions (3x90° + 2x135°)", length_mm=-round(total_ded, 1), clause="IS 2502"))
 
     if request.use_is_code_rules:
-        is_code_provisions["lateral_tie_pitch_mm"] = f"{actual_pitch:.0f} mm (IS 456 Cl. 26.5.3.2)"
+        if has_dual_zone:
+            is_code_provisions["lateral_tie_pitch_mm"] = (
+                f"End zones: {request.tie_spacing_end_mm:.0f} mm c/c (2x{request.end_zone_length_mm:.0f} mm), "
+                f"Mid zone: {request.tie_spacing_mid_mm or request.tie_spacing_mm:.0f} mm c/c"
+            )
+            is_code_provisions["lateral_tie_count_derivation"] = (
+                f"2 x ({request.end_zone_length_mm:.0f}/{request.tie_spacing_end_mm:.0f}) + "
+                f"({mid_len:.0f}/{mid_pitch:.0f}) = {2 * ties_each_end} + {ties_mid} = {num_ties} ties"
+            )
+        else:
+            is_code_provisions["lateral_tie_pitch_mm"] = f"{actual_pitch:.0f} mm (IS 456 Cl. 26.5.3.2)"
         is_code_provisions["lateral_tie_shape"] = "Closed rectangular tie with 135° seismic hooks"
 
     return ColumnBarResult(
@@ -135,6 +167,9 @@ def calculate_longitudinal_bar(request: ColumnBarRequest) -> ColumnBarResult:
         bar_diameter_mm=request.bar_diameter_mm,
         tie_bar_dia_mm=tie_dia,
         tie_spacing_mm=actual_pitch,
+        tie_spacing_end_mm=request.tie_spacing_end_mm,
+        end_zone_length_mm=request.end_zone_length_mm,
+        tie_spacing_mid_mm=request.tie_spacing_mid_mm,
         num_ties=num_ties,
         tie_cutting_length_m=tie_m,
         tie_cutting_length_mm=round(tie_cut_mm, 1),

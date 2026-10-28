@@ -115,3 +115,38 @@ def test_end_to_end_raft_drawing_schedule_qa() -> None:
     assert "Bottom: Y16 @ 150 c/c" in res2.answer
     assert "Top: Y12 @ 150 c/c" in res2.answer
     assert "Shear links: Y8 @ 150 c/c" in res2.answer
+
+
+def test_delete_drawing_chunks_api_and_store() -> None:
+    from fastapi.testclient import TestClient
+    from app.main import app
+    from app.ingestion.models import ExtractedChunk
+    from app.rag.store import add_chunks, get_all_chunks, delete_drawing_chunks
+
+    client = TestClient(app)
+    test_dwg = "wrong_upload_sample.pdf"
+    sample_chunks = [
+        ExtractedChunk(
+            chunk_index=0,
+            page_number=1,
+            content="WRONG BEAM SCHEDULE B99: Clear span 4000 mm",
+            entity_code="B99",
+            entity_type="BEAM",
+            source_reference="wrong_upload_sample.pdf / Page 1",
+        )
+    ]
+    add_chunks(sample_chunks, drawing_id=test_dwg)
+    assert any(c.get("drawing_id") == test_dwg for c in get_all_chunks())
+
+    # Delete via API
+    resp = client.delete(f"/drawings/{test_dwg}")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "deleted"
+    assert data["drawing_id"] == test_dwg
+    assert data["deleted_chunks_count"] >= 1
+
+    # Verify no chunks remain with this drawing_id
+    assert not any(c.get("drawing_id") == test_dwg for c in get_all_chunks())
+
+

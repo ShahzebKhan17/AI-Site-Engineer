@@ -677,6 +677,33 @@ def regex_extract_drawing_dimensions(
         elif tie_simple:
             col_tie_dia = float(tie_simple.group(1))
 
+        # Check for dual-zone / confining end-zone pattern:
+        col_tie_end_spacing = None
+        col_end_zone_len = None
+        col_tie_mid_spacing = None
+
+        end_zone_match = re.search(
+            r"(?:end\s*zones?|ends?)\s*[:=–—\-]?\s*(\d{2,3})\s*mm\s*c/c\s*(?:for|upto)\s*(\d{2,4})\s*mm|"
+            r"(?:end\s*zones?|ends?)\s*[:=–—\-]?\s*(?:(?:for|upto)\s*)?(\d{2,4})\s*mm\s*(?:at\s*each\s*end)?.*?(\d{2,3})\s*mm\s*c/c",
+            text,
+            re.IGNORECASE,
+        )
+        if end_zone_match:
+            if end_zone_match.group(1) and end_zone_match.group(2):
+                col_tie_end_spacing = float(end_zone_match.group(1))
+                col_end_zone_len = float(end_zone_match.group(2))
+            elif end_zone_match.group(3) and end_zone_match.group(4):
+                col_end_zone_len = float(end_zone_match.group(3))
+                col_tie_end_spacing = float(end_zone_match.group(4))
+
+        mid_zone_match = re.search(
+            r"(?:middle\s*zone|mid\s*zone|middle|other\s*remaining\s*part|remaining\s*part)\s*[:=–—\-]?\s*(?:stirrups?\s*is\s*at\s*)?(\d{2,3})\s*mm",
+            text,
+            re.IGNORECASE,
+        )
+        if mid_zone_match:
+            col_tie_mid_spacing = float(mid_zone_match.group(1))
+
         # Lap requirement: only if explicitly specified or if total length exceeds 12m
         has_lap = bool(re.search(r"\blap\b", text, re.IGNORECASE))
 
@@ -694,6 +721,9 @@ def regex_extract_drawing_dimensions(
                 has_lap_splice=has_lap,
                 tie_bar_dia_mm=col_tie_dia,
                 tie_spacing_mm=col_tie_spacing,
+                tie_spacing_end_mm=col_tie_end_spacing,
+                end_zone_length_mm=col_end_zone_len,
+                tie_spacing_mid_mm=col_tie_mid_spacing,
                 concrete_grade=concrete_grade,
                 steel_grade=steel_grade,
                 source_references=citations_list,

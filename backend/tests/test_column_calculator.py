@@ -88,3 +88,50 @@ def test_column_custom_bend_allowance_20d() -> None:
     assert result.cutting_length_mm == 3288.0
     assert result.cutting_length_m == 3.288
 
+
+def test_column_dual_zone_transverse_ties_calculation() -> None:
+    """Test Column C-01 with dual-zone lateral ties:
+    Height: 3000 mm, Column size: 300x450 mm, Cover: 40 mm, Dia: 8 mm
+    End zones: 100 mm c/c for 300 mm at each end -> 2 x (300/100) = 6 ties
+    Middle zone: 150 mm c/c for remaining 2400 mm -> 2400/150 = 16 ties
+    Total ties = 6 + 16 = 22 ties
+    """
+    req = ColumnBarRequest(
+        member_id="C-01",
+        bar_diameter_mm=16,
+        num_bars=8,
+        storey_height_mm=3000,
+        column_width_mm=300,
+        column_depth_mm=450,
+        clear_cover_mm=40,
+        tie_bar_dia_mm=8,
+        tie_spacing_end_mm=100,
+        end_zone_length_mm=300,
+        tie_spacing_mid_mm=150,
+        concrete_grade="M25",
+        steel_grade="Fe500",
+        source_references=["drawing:TEST-COL-001"],
+        use_is_code_rules=True,
+        deduct_bends=True,
+    )
+    result = calculate_longitudinal_bar(req)
+    assert result.num_ties == 22
+    assert result.tie_spacing_end_mm == 100
+    assert result.end_zone_length_mm == 300
+    assert result.tie_spacing_mid_mm == 150
+
+    bbs = result.to_bbs_result()
+    assert len(bbs.items) == 2
+    tie_item = bbs.items[1]
+    assert tie_item.bar_type == "tie"
+    assert tie_item.num_bars == 22
+    assert tie_item.bar_diameter_mm == 8.0
+    # Cutting length: core (2*(220+370)=1180) + hooks (2*10*8=160) - bend deductions (3*2*8 + 2*3*8 = 48 + 48 = 96) = 1244 mm = 1.244 m
+    assert tie_item.cutting_length_mm == 1244.0
+    assert tie_item.cutting_length_m == 1.244
+    assert tie_item.total_length_m == round(1.244 * 22, 3)
+    # Unit weight: 8^2 / 162 = 0.395 kg/m
+    assert tie_item.unit_weight_kg_m == 0.395
+    assert tie_item.total_weight_kg == round(0.395 * 1.244 * 22, 2)
+
+

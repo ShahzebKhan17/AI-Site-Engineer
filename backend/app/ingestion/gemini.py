@@ -49,12 +49,15 @@ Analyze the attached structural drawing/document carefully and extract:
    - dimensions: numeric values in millimeters (mm) where visible (e.g. width_mm, depth_mm, length_mm, storey_height_mm, thickness_mm)
    - footing_embedment_mm: embedment into footing or foundation in mm ONLY if explicitly shown or stated, else 0.0
    - bend_allowance_mm: bend or hook allowance in mm if specified (e.g. 20d or explicit mm), or 300.0 if not specified
+   - tie_spacing_end_mm: tie / stirrup spacing in confining / end zones in mm if specified (e.g. 100)
+   - end_zone_length_mm: length of confining / end zone at each end in mm if specified (e.g. 300)
+   - tie_spacing_mid_mm: tie / stirrup spacing in middle zone in mm if specified (e.g. 150)
    - main_bar_diameter_mm: primary longitudinal/mesh rebar diameter (e.g. 16, 20, 25, 32)
    - secondary_bar_diameter_mm: secondary/stirrup/tie/distribution rebar diameter (e.g. 8, 10)
    - spacing_mm: center-to-center spacing in mm if applicable (e.g. 150, 200)
    - concrete_grade: e.g. "M25", "M30", "M35", "M40" (default "M25" if not specified)
    - steel_grade: e.g. "FE415", "FE500", "FE550" (default "FE500" if not specified)
-   - reinforcement_summary: verbatim string from drawing (e.g. "8 bars Ø16 mm", "4-T16 + 4-T20", "Y16 @ 150 c/c Bottom Mesh")
+   - reinforcement_summary: verbatim string from drawing (e.g. "8 bars Ø16 mm, Ø8 mm ties: 100mm end / 150mm mid")
    - confidence: float between 0.0 and 1.0 representing extraction certainty
    - citations: list of drawing sheet / page / section references (e.g. ["Sheet S-02", "Column Schedule Table"])
    - notes: list of important notes or warnings (e.g. lap location, cover requirements)
@@ -81,14 +84,17 @@ Respond strictly in valid JSON matching this exact structure:
         "depth_mm": 450.0,
         "storey_height_mm": 3000.0,
         "footing_embedment_mm": 0.0,
-        "bend_allowance_mm": 300.0
+        "bend_allowance_mm": 300.0,
+        "tie_spacing_end_mm": 100.0,
+        "end_zone_length_mm": 300.0,
+        "tie_spacing_mid_mm": 150.0
       },
       "main_bar_diameter_mm": 16.0,
       "secondary_bar_diameter_mm": 8.0,
       "spacing_mm": 150.0,
       "concrete_grade": "M25",
       "steel_grade": "FE500",
-      "reinforcement_summary": "8 bars Ø16 mm, 8mm ties @ 150 c/c",
+      "reinforcement_summary": "8 bars Ø16 mm, Ø8 mm ties: 100mm end / 150mm mid",
       "confidence": 0.98,
       "citations": ["Page 1: Column Schedule"],
       "notes": ["Clear cover 40mm specified"]

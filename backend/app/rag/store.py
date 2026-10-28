@@ -179,3 +179,16 @@ def clear_uploaded_chunks() -> None:
     global _STORE
     with _LOCK:
         _STORE = list(DEFAULT_SPECIFICATION_CHUNKS)
+
+
+def delete_drawing_chunks(drawing_id: str) -> int:
+    """Remove chunks associated with a specific drawing from active memory store."""
+    global _STORE
+    with _LOCK:
+        initial_len = len(_STORE)
+        _STORE = [
+            c for c in _STORE
+            if c.get("drawing_id") != drawing_id
+            and not (c.get("source_reference", "").startswith(f"drawing:{drawing_id}") or c.get("source_reference", "").startswith(f"image:{drawing_id}") or drawing_id in c.get("source_reference", ""))
+        ]
+        return initial_len - len(_STORE)

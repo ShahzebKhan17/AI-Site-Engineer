@@ -163,3 +163,35 @@ def test_raft_extraction_and_member_type() -> None:
     assert output.footing_request.spacing_mm == 150.0
     assert any("Bottom mesh 16mm" in note for note in output.notes)
     assert any("Top mesh 12mm" in note for note in output.notes)
+
+
+def test_regex_extracts_column_dual_zone_ties() -> None:
+    text = (
+        "REINFORCED CONCRETE COLUMN — TEST DOCUMENT\n"
+        "Member ID: C-01. Member type: RCC column.\n"
+        "Overall size: 300 mm x 450 mm. Height: 3000 mm.\n"
+        "Longitudinal reinforcement: 8 bars Ø16 mm. Steel grade: Fe500.\n"
+        "Transverse reinforcement: Ø8 mm closed ties / stirrups.\n"
+        "Tie spacing — end zones: 100 mm c/c for 300 mm at each end.\n"
+        "Tie spacing — middle zone: 150 mm c/c.\n"
+        "Nominal clear cover: 40 mm. Concrete grade: M25."
+    )
+    output = regex_extract_drawing_dimensions(
+        text=text,
+        target_member_id="C-01",
+        citations=["drawing:TEST-COL-001"],
+        pages=[1],
+    )
+    assert output.member_id == "C-01"
+    assert output.column_request is not None
+    assert output.column_request.bar_diameter_mm == 16.0
+    assert output.column_request.num_bars == 8
+    assert output.column_request.storey_height_mm == 3000.0
+    assert output.column_request.tie_spacing_end_mm == 100.0
+    assert output.column_request.end_zone_length_mm == 300.0
+    assert output.column_request.tie_spacing_mid_mm == 150.0
+
+    from app.engineering.calculators.column import calculate_longitudinal_bar
+    calc = calculate_longitudinal_bar(output.column_request)
+    assert calc.num_ties == 22
+

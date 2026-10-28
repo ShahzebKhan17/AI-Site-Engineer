@@ -117,3 +117,11 @@ async def ingest_drawing(
         persisted_count=len(persisted),
         drawing_id=effective_drawing_id,
     )
+
+
+@router.delete("/{drawing_id}")
+def delete_uploaded_drawing(drawing_id: str):
+    """Delete a drawing's chunks from the in-memory store."""
+    from app.rag.store import delete_drawing_chunks
+    deleted_count = delete_drawing_chunks(drawing_id)
+    return {"status": "deleted", "drawing_id": drawing_id, "deleted_chunks_count": deleted_count}

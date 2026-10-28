@@ -435,6 +435,48 @@ export default function Home() {
     event.target.value = "";
   }
 
+  async function handleDeleteDrawing(drawingName: string) {
+    // 1. Remove from local drawing list immediately
+    setDrawings((prev) => prev.filter((d) => d.name !== drawingName));
+
+    // 2. Remove associated chunks from candidate cache
+    setUploadedChunks((prev) =>
+      prev.filter(
+        (c) =>
+          c.drawing_id !== drawingName &&
+          !c.id?.startsWith(drawingName) &&
+          !c.source_reference?.includes(drawingName)
+      )
+    );
+
+    // 3. Remove extracted members that originated from this drawing
+    setExtractedMembers((prev) =>
+      prev.filter((m) => {
+        const src = (m as any).source_reference || (m as any).source_drawing || "";
+        return !src.includes(drawingName);
+      })
+    );
+
+    // 4. If current review modal belongs to this drawing, close it
+    if (reviewMember) {
+      const src = (reviewMember as any).source_reference || (reviewMember as any).source_drawing || "";
+      if (src.includes(drawingName)) {
+        setIsReviewOpen(false);
+        setReviewMember(null);
+      }
+    }
+
+    // 5. Notify backend store to purge chunks
+    try {
+      await fetch(`${API_BASE_URL}/drawings/${encodeURIComponent(drawingName)}`, {
+        method: "DELETE",
+      });
+      triggerToast(`Removed "${drawingName}" and purged indexed specifications.`);
+    } catch {
+      triggerToast(`Removed "${drawingName}" from local library.`);
+    }
+  }
+
   async function handleCalculateReviewedMember() {
     if (!reviewMember) return;
     setIsReviewSubmitting(true);
@@ -807,45 +849,83 @@ export default function Home() {
                     <span className="text-[0.7rem] font-mono text-cyan-400 font-bold uppercase tracking-wider block">
                       GOVERNING FORMULA &amp; CODE STANDARD
                     </span>
-                    <div className="formula-code">
-                      Cutting Length = Base Span/Height + End Embedments + Hooks - Bend Deductions
-                    </div>
-                    <div className="text-xs text-slate-300 space-y-1">
-                      <div>• <strong>IS 456:2000 Clause 26.2.1:</strong> Development Length Ld = (ϕ · 0.87 · fy) / (4 · τbd)</div>
-                      <div>• <strong>SP 34:1987 Clause 3.2 &amp; IS 2502:</strong> 90° bend elongation deduction = -2d ({2 * inspectItem.diameter} mm)</div>
-                    </div>
+                    {inspectItem.barMark.toLowerCase().includes("tie") || inspectItem.barMark.toLowerCase().includes("stirrup") ? (
+                      <>
+                        <div className="formula-code">
+                          Cutting Length = Core Perimeter 2(w + d) + 2 × (10 · Ø) Hooks - Bend Deductions
+                        </div>
+                        <div className="text-xs text-slate-300 space-y-1">
+                          <div>• <strong>IS 456 Cl. 26.5.3 &amp; SP 34 Cl. 7.2:</strong> 135° seismic hook extension = 10 · Ø ({10 * inspectItem.diameter} mm per hook)</div>
+                          <div>• <strong>IS 2502:</strong> Bend deduction = 3 × 90° (-2 · Ø each) + 2 × 135° (-3 · Ø each)</div>
+                          <div>• <strong>Transverse Ties Count:</strong> End zones (2 × H_end / s_end) + Middle zone (H_mid / s_mid) = {inspectItem.numBars} nos</div>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="formula-code">
+                          Cutting Length = Base Span/Height + End Embedments + Hooks - Bend Deductions
+                        </div>
+                        <div className="text-xs text-slate-300 space-y-1">
+                          <div>• <strong>IS 456:2000 Clause 26.2.1:</strong> Development Length Ld = (Ø · 0.87 · fy) / (4 · τbd)</div>
+                          <div>• <strong>SP 34:1987 Clause 3.2 &amp; IS 2502:</strong> 90° bend elongation deduction = -2 · Ø ({2 * inspectItem.diameter} mm)</div>
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   <div>
                     <span className="text-xs font-mono text-cyan-300 font-bold uppercase tracking-wider block mb-2">
                       STEP-BY-STEP ARITHMETIC BREAKDOWN (mm)
                     </span>
-                    <table className="w-full text-xs font-mono border border-slate-800 bg-slate-950/70 rounded-lg overflow-hidden">
-                      <thead className="bg-slate-900/90 text-slate-300 border-b border-slate-800">
-                        <tr>
-                          <th className="py-2 px-3 text-left">Component / Provision</th>
-                          <th className="py-2 px-3 text-left">Code Standard</th>
-                          <th className="py-2 px-3 text-right">Length (mm)</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-800/60">
-                        {inspectItem.breakdown.map((b, idx) => (
-                          <tr key={`insp-row-${idx}`}>
-                            <td className="py-2 px-3 text-slate-200">{b.label}</td>
-                            <td className="py-2 px-3 text-sky-400">{b.clause || "Drawing Detail"}</td>
-                            <td className={`py-2 px-3 text-right font-bold ${b.length_mm < 0 ? "text-rose-400" : "text-emerald-400"}`}>
-                              {b.length_mm > 0 ? `+${b.length_mm.toFixed(1)}` : b.length_mm.toFixed(1)}
+                    <div className="overflow-x-auto rounded-lg border border-slate-700 bg-slate-950/90 shadow-md">
+                      <table className="w-full text-xs font-mono border-collapse">
+                        <colgroup>
+                          <col className="w-[48%]" />
+                          <col className="w-[30%]" />
+                          <col className="w-[22%]" />
+                        </colgroup>
+                        <thead className="bg-slate-900 text-slate-300 border-b border-slate-700">
+                          <tr>
+                            <th className="py-2.5 px-3.5 text-left font-bold uppercase tracking-wider text-[11px] border-r border-slate-800">
+                              Component / Provision
+                            </th>
+                            <th className="py-2.5 px-3.5 text-left font-bold uppercase tracking-wider text-[11px] border-r border-slate-800">
+                              Code Standard
+                            </th>
+                            <th className="py-2.5 px-3.5 text-right font-bold uppercase tracking-wider text-[11px]">
+                              Length (mm)
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800">
+                          {inspectItem.breakdown.map((b, idx) => (
+                            <tr key={`insp-row-${idx}`} className="hover:bg-slate-900/40 transition-colors">
+                              <td className="py-2.5 px-3.5 text-slate-200 font-medium border-r border-slate-800">
+                                {b.label}
+                              </td>
+                              <td className="py-2.5 px-3.5 border-r border-slate-800 whitespace-nowrap">
+                                <span className="inline-block px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-sky-400 text-[11px] font-semibold">
+                                  {b.clause || "Drawing Detail"}
+                                </span>
+                              </td>
+                              <td className={`py-2.5 px-3.5 text-right font-bold font-mono ${b.length_mm < 0 ? "text-rose-400" : "text-emerald-400"}`}>
+                                {b.length_mm > 0 ? `+${b.length_mm.toFixed(1)}` : b.length_mm.toFixed(1)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr className="bg-cyan-950/40 border-t-2 border-cyan-500/50 font-bold">
+                            <td className="py-2.5 px-3.5 text-cyan-300 uppercase tracking-wider text-[11px] border-r border-slate-800" colSpan={2}>
+                              FINAL CUTTING LENGTH (mm)
+                            </td>
+                            <td className="py-2.5 px-3.5 text-right text-cyan-300 text-sm font-bold font-mono">
+                              {inspectItem.cuttingLengthMm.toFixed(1)} mm ({inspectItem.cuttingLengthM.toFixed(3)} m)
                             </td>
                           </tr>
-                        ))}
-                        <tr className="bg-slate-900/90 border-t-2 border-cyan-500/40 font-bold">
-                          <td className="py-2 px-3 text-cyan-300" colSpan={2}>FINAL CUTTING LENGTH (mm)</td>
-                          <td className="py-2 px-3 text-right text-cyan-300 text-sm">
-                            {inspectItem.cuttingLengthMm.toFixed(1)} mm ({inspectItem.cuttingLengthM.toFixed(3)} m)
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
+                        </tfoot>
+                      </table>
+                    </div>
                   </div>
                 </div>
               )}
@@ -869,12 +949,82 @@ export default function Home() {
                     </div>
                   </div>
 
-                  <div className="bg-slate-950/70 border border-slate-800 rounded-lg p-4 font-mono text-xs space-y-2">
-                    <div className="text-cyan-300 font-bold">SUBSTITUTION FOR T{inspectItem.diameter} REBAR:</div>
-                    <div className="text-slate-300 pl-2">
-                      = ({inspectItem.diameter})² / 162<br />
-                      = {inspectItem.diameter * inspectItem.diameter} / 162<br />
-                      = <span className="text-amber-300 text-sm font-bold">{inspectItem.unitWeight.toFixed(3)} kg/m</span>
+                  <div>
+                    <span className="text-xs font-mono text-cyan-300 font-bold uppercase tracking-wider block mb-2">
+                      UNIT WEIGHT DERIVATION AUDIT TABLE
+                    </span>
+                    <div className="overflow-x-auto rounded-lg border border-slate-700 bg-slate-950/90 shadow-md">
+                      <table className="w-full text-xs font-mono border-collapse">
+                        <colgroup>
+                          <col className="w-[45%]" />
+                          <col className="w-[30%]" />
+                          <col className="w-[25%]" />
+                        </colgroup>
+                        <thead className="bg-slate-900 text-slate-300 border-b border-slate-700">
+                          <tr>
+                            <th className="py-2.5 px-3.5 text-left font-bold uppercase tracking-wider text-[11px] border-r border-slate-800">
+                              Parameter / Derivation Step
+                            </th>
+                            <th className="py-2.5 px-3.5 text-left font-bold uppercase tracking-wider text-[11px] border-r border-slate-800">
+                              Standard / Formula
+                            </th>
+                            <th className="py-2.5 px-3.5 text-right font-bold uppercase tracking-wider text-[11px]">
+                              Value
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800">
+                          <tr className="hover:bg-slate-900/40 transition-colors">
+                            <td className="py-2.5 px-3.5 text-slate-200 font-medium border-r border-slate-800">
+                              Nominal Rebar Diameter (d)
+                            </td>
+                            <td className="py-2.5 px-3.5 border-r border-slate-800">
+                              <span className="inline-block px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-sky-400 text-[11px] font-semibold">
+                                Drawing Schedule
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3.5 text-right font-bold text-cyan-300">
+                              {inspectItem.diameter} mm (T{inspectItem.diameter})
+                            </td>
+                          </tr>
+                          <tr className="hover:bg-slate-900/40 transition-colors">
+                            <td className="py-2.5 px-3.5 text-slate-200 font-medium border-r border-slate-800">
+                              Standard Density of Steel
+                            </td>
+                            <td className="py-2.5 px-3.5 border-r border-slate-800">
+                              <span className="inline-block px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-sky-400 text-[11px] font-semibold">
+                                IS 1786 Cl. 6.2
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3.5 text-right font-bold text-slate-300">
+                              7850 kg/m³
+                            </td>
+                          </tr>
+                          <tr className="hover:bg-slate-900/40 transition-colors">
+                            <td className="py-2.5 px-3.5 text-slate-200 font-medium border-r border-slate-800">
+                              Unit Weight Equation
+                            </td>
+                            <td className="py-2.5 px-3.5 border-r border-slate-800">
+                              <span className="inline-block px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-sky-400 text-[11px] font-semibold">
+                                d² / 162
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3.5 text-right text-slate-300 font-mono">
+                              ({inspectItem.diameter})² / 162
+                            </td>
+                          </tr>
+                        </tbody>
+                        <tfoot>
+                          <tr className="bg-cyan-950/40 border-t-2 border-cyan-500/50 font-bold">
+                            <td className="py-2.5 px-3.5 text-cyan-300 uppercase tracking-wider text-[11px] border-r border-slate-800" colSpan={2}>
+                              COMPUTED UNIT WEIGHT (kg/m)
+                            </td>
+                            <td className="py-2.5 px-3.5 text-right text-amber-300 text-sm font-bold font-mono">
+                              {inspectItem.unitWeight.toFixed(3)} kg/m
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
                     </div>
                   </div>
                 </div>
@@ -890,11 +1040,83 @@ export default function Home() {
                       Total Weight (kg) = Cutting Length (m) × Unit Weight (kg/m) × No. of Bars
                     </div>
                   </div>
-                  <div className="bg-slate-950/70 border border-slate-800 rounded-lg p-4 font-mono text-xs space-y-2">
-                    <div className="text-cyan-300 font-bold">CALCULATION FOR {inspectItem.numBars} BARS:</div>
-                    <div className="text-slate-300 pl-2">
-                      = {inspectItem.cuttingLengthM.toFixed(3)} m × {inspectItem.unitWeight.toFixed(3)} kg/m × {inspectItem.numBars} bars<br />
-                      = <span className="text-amber-300 text-sm font-bold">{inspectItem.totalWeight.toFixed(2)} kg steel</span>
+
+                  <div>
+                    <span className="text-xs font-mono text-cyan-300 font-bold uppercase tracking-wider block mb-2">
+                      WEIGHT MULTIPLICATION AUDIT TABLE
+                    </span>
+                    <div className="overflow-x-auto rounded-lg border border-slate-700 bg-slate-950/90 shadow-md">
+                      <table className="w-full text-xs font-mono border-collapse">
+                        <colgroup>
+                          <col className="w-[45%]" />
+                          <col className="w-[30%]" />
+                          <col className="w-[25%]" />
+                        </colgroup>
+                        <thead className="bg-slate-900 text-slate-300 border-b border-slate-700">
+                          <tr>
+                            <th className="py-2.5 px-3.5 text-left font-bold uppercase tracking-wider text-[11px] border-r border-slate-800">
+                              Quantity Component
+                            </th>
+                            <th className="py-2.5 px-3.5 text-left font-bold uppercase tracking-wider text-[11px] border-r border-slate-800">
+                              Derivation Source
+                            </th>
+                            <th className="py-2.5 px-3.5 text-right font-bold uppercase tracking-wider text-[11px]">
+                              Value
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800">
+                          <tr className="hover:bg-slate-900/40 transition-colors">
+                            <td className="py-2.5 px-3.5 text-slate-200 font-medium border-r border-slate-800">
+                              Single Bar Cutting Length
+                            </td>
+                            <td className="py-2.5 px-3.5 border-r border-slate-800">
+                              <span className="inline-block px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-sky-400 text-[11px] font-semibold">
+                                IS 456 Ld + Span
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3.5 text-right font-bold text-emerald-400">
+                              {inspectItem.cuttingLengthM.toFixed(3)} m
+                            </td>
+                          </tr>
+                          <tr className="hover:bg-slate-900/40 transition-colors">
+                            <td className="py-2.5 px-3.5 text-slate-200 font-medium border-r border-slate-800">
+                              Rebar Unit Weight (T{inspectItem.diameter})
+                            </td>
+                            <td className="py-2.5 px-3.5 border-r border-slate-800">
+                              <span className="inline-block px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-sky-400 text-[11px] font-semibold">
+                                d² / 162
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3.5 text-right font-bold text-cyan-300">
+                              {inspectItem.unitWeight.toFixed(3)} kg/m
+                            </td>
+                          </tr>
+                          <tr className="hover:bg-slate-900/40 transition-colors">
+                            <td className="py-2.5 px-3.5 text-slate-200 font-medium border-r border-slate-800">
+                              Total Number of Bars
+                            </td>
+                            <td className="py-2.5 px-3.5 border-r border-slate-800">
+                              <span className="inline-block px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-sky-400 text-[11px] font-semibold">
+                                Reinforcement Schedule
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3.5 text-right font-bold text-slate-200">
+                              {inspectItem.numBars} Nos
+                            </td>
+                          </tr>
+                        </tbody>
+                        <tfoot>
+                          <tr className="bg-cyan-950/40 border-t-2 border-cyan-500/50 font-bold">
+                            <td className="py-2.5 px-3.5 text-cyan-300 uppercase tracking-wider text-[11px] border-r border-slate-800" colSpan={2}>
+                              TOTAL REBAR WEIGHT (kg)
+                            </td>
+                            <td className="py-2.5 px-3.5 text-right text-amber-300 text-sm font-bold font-mono">
+                              {inspectItem.totalWeight.toFixed(2)} kg
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
                     </div>
                   </div>
                 </div>
@@ -1093,6 +1315,70 @@ export default function Home() {
                     />
                   </div>
                 </div>
+
+                {reviewMember.member_type.toLowerCase() === "column" && (
+                  <div className="pt-2 border-t border-slate-800/80">
+                    <span className="text-[10px] text-cyan-400 font-bold block mb-1">
+                      DUAL-ZONE LATERAL TIE DETAILING (OPTIONAL / SEISMIC)
+                    </span>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <label className="text-slate-400 block mb-1 text-[10px]">End Zone Spacing (mm)</label>
+                        <input
+                          type="number"
+                          value={reviewMember.dimensions?.tie_spacing_end_mm || ""}
+                          onChange={(e) =>
+                            setReviewMember({
+                              ...reviewMember,
+                              dimensions: {
+                                ...reviewMember.dimensions,
+                                tie_spacing_end_mm: parseFloat(e.target.value) || 0,
+                              },
+                            })
+                          }
+                          className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white"
+                          placeholder="e.g. 100"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-slate-400 block mb-1 text-[10px]">End Zone Length (mm)</label>
+                        <input
+                          type="number"
+                          value={reviewMember.dimensions?.end_zone_length_mm || ""}
+                          onChange={(e) =>
+                            setReviewMember({
+                              ...reviewMember,
+                              dimensions: {
+                                ...reviewMember.dimensions,
+                                end_zone_length_mm: parseFloat(e.target.value) || 0,
+                              },
+                            })
+                          }
+                          className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white"
+                          placeholder="e.g. 300"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-slate-400 block mb-1 text-[10px]">Mid Zone Spacing (mm)</label>
+                        <input
+                          type="number"
+                          value={reviewMember.dimensions?.tie_spacing_mid_mm || reviewMember.spacing_mm || ""}
+                          onChange={(e) =>
+                            setReviewMember({
+                              ...reviewMember,
+                              dimensions: {
+                                ...reviewMember.dimensions,
+                                tie_spacing_mid_mm: parseFloat(e.target.value) || 0,
+                              },
+                            })
+                          }
+                          className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white"
+                          placeholder="e.g. 150"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Material Grades */}
@@ -1581,9 +1867,25 @@ export default function Home() {
                         {dwg.revision} · {dwg.size} · {dwg.pages} pages
                       </small>
                     </div>
-                    <span className="badge-ready">
-                      {dwg.status === "Indexed" ? "● HYBRID STORE" : dwg.status}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="badge-ready">
+                        {dwg.status === "Indexed" ? "● HYBRID STORE" : dwg.status}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteDrawing(dwg.name);
+                        }}
+                        title={`Remove "${dwg.name}"`}
+                        aria-label={`Delete ${dwg.name}`}
+                        className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 rounded border border-transparent hover:border-rose-500/40 transition-colors cursor-pointer"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
                 ))
               )}
@@ -2012,34 +2314,55 @@ export default function Home() {
                 <span className="text-xs font-mono text-cyan-300 font-bold uppercase tracking-wider block mb-2">
                   ARITHMETIC BREAKDOWN &amp; CODE PROVISIONS
                 </span>
-                <table className="calculation-table">
-                  <thead>
-                    <tr>
-                      <th>Component / Provision</th>
-                      <th>Clause / Standard</th>
-                      <th className="text-right">Length (mm)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {activeResult.breakdown.map((row, idx) => (
-                      <tr key={`calc-row-${idx}`}>
-                        <td className="text-white font-medium">{row.label}</td>
-                        <td className="text-sky-400">{row.clause || "Drawing Detail"}</td>
-                        <td className={`length-val ${row.length_mm < 0 ? "negative" : "positive"}`}>
-                          {row.length_mm > 0 ? `+${row.length_mm.toFixed(1)}` : row.length_mm.toFixed(1)}
+                <div className="overflow-x-auto rounded-lg border border-slate-700 bg-slate-950/90 shadow-md">
+                  <table className="w-full text-xs font-mono border-collapse">
+                    <colgroup>
+                      <col className="w-[48%]" />
+                      <col className="w-[30%]" />
+                      <col className="w-[22%]" />
+                    </colgroup>
+                    <thead className="bg-slate-900 text-slate-300 border-b border-slate-700">
+                      <tr>
+                        <th className="py-2.5 px-3.5 text-left font-bold uppercase tracking-wider text-[11px] border-r border-slate-800">
+                          Component / Provision
+                        </th>
+                        <th className="py-2.5 px-3.5 text-left font-bold uppercase tracking-wider text-[11px] border-r border-slate-800">
+                          Clause / Standard
+                        </th>
+                        <th className="py-2.5 px-3.5 text-right font-bold uppercase tracking-wider text-[11px]">
+                          Length (mm)
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800">
+                      {activeResult.breakdown.map((row, idx) => (
+                        <tr key={`calc-row-${idx}`} className="hover:bg-slate-900/40 transition-colors">
+                          <td className="py-2.5 px-3.5 text-slate-200 font-medium border-r border-slate-800">
+                            {row.label}
+                          </td>
+                          <td className="py-2.5 px-3.5 border-r border-slate-800 whitespace-nowrap">
+                            <span className="inline-block px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-sky-400 text-[11px] font-semibold">
+                              {row.clause || "Drawing Detail"}
+                            </span>
+                          </td>
+                          <td className={`py-2.5 px-3.5 text-right font-bold font-mono ${row.length_mm < 0 ? "text-rose-400" : "text-emerald-400"}`}>
+                            {row.length_mm > 0 ? `+${row.length_mm.toFixed(1)}` : row.length_mm.toFixed(1)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t-2 border-cyan-500/50 bg-cyan-950/40 font-bold">
+                        <td className="py-2.5 px-3.5 text-cyan-300 uppercase tracking-wider text-[11px] border-r border-slate-800" colSpan={2}>
+                          TOTAL CUTTING LENGTH (DETERMINISTIC SUM)
+                        </td>
+                        <td className="py-2.5 px-3.5 text-right text-cyan-300 text-sm font-bold font-mono">
+                          {activeResult.cuttingLengthMm.toFixed(1)} mm
                         </td>
                       </tr>
-                    ))}
-                    <tr className="border-t-2 border-cyan-500/40 bg-cyan-950/20 font-bold">
-                      <td className="text-cyan-300" colSpan={2}>
-                        TOTAL CUTTING LENGTH (DETERMINISTIC SUM)
-                      </td>
-                      <td className="length-val positive text-cyan-300">
-                        {activeResult.cuttingLengthMm.toFixed(1)} mm
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+                    </tfoot>
+                  </table>
+                </div>
 
                 {/* Verified Drawing Sheet Citations */}
                 <div className="mt-4 pt-3 border-t border-slate-800">
