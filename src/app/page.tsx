@@ -817,6 +817,7 @@ export default function Home() {
         body: JSON.stringify({
           project_id: forceDemo ? "Sample 9-Member Reference Project" : projectName,
           candidate_chunks_cache: (!forceDemo && uploadedChunks.length > 0) ? uploadedChunks : undefined,
+          candidate_members_cache: (!forceDemo && extractedMembers.length > 0) ? extractedMembers : undefined,
           allow_demo_fallback: forceDemo,
         }),
       });
@@ -852,6 +853,7 @@ export default function Home() {
         body: JSON.stringify({
           project_id: forceDemo ? "Sample 9-Member Reference Project" : projectName,
           candidate_chunks_cache: (!forceDemo && uploadedChunks.length > 0) ? uploadedChunks : undefined,
+          candidate_members_cache: (!forceDemo && extractedMembers.length > 0) ? extractedMembers : undefined,
           allow_demo_fallback: forceDemo,
         }),
       });

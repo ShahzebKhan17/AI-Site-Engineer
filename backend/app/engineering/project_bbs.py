@@ -28,6 +28,7 @@ def generate_consolidated_project_bbs(
     chunks: list[dict[str, Any]] | None = None,
     project_id: str = "Structural Project",
     allow_demo_fallback: bool = False,
+    candidate_members_cache: list[dict[str, Any]] | None = None,
 ) -> ProjectBBSResponse:
     """Scan all project drawing chunks, calculate BBS for each structural member, and aggregate steel tonnage by diameter."""
     if chunks and len(chunks) > 0:
@@ -62,6 +63,13 @@ def generate_consolidated_project_bbs(
 
         if ecode and ecode != "GENERAL":
             entity_to_chunks[ecode.upper().strip()].append(rc)
+
+    # Ensure all candidate members are represented
+    if candidate_members_cache:
+        for cand in candidate_members_cache:
+            cid = str(cand.get("member_id", "")).strip().upper()
+            if cid and cid not in entity_to_chunks:
+                entity_to_chunks[cid] = retrieved_chunks
 
     # Fallback to standard baseline members ONLY if explicitly allowed (e.g. Demo Mode)
     if not entity_to_chunks and allow_demo_fallback:
@@ -104,6 +112,55 @@ def generate_consolidated_project_bbs(
             chunks=e_chunks,
             member_id=entity_id,
         )
+
+        # Overlay verified parameters from candidate_members_cache if present
+        matched_cand: dict[str, Any] | None = None
+        if candidate_members_cache:
+            norm_id = entity_id.upper().replace(" ", "").replace("-", "")
+            for cand in candidate_members_cache:
+                cand_norm = str(cand.get("member_id", "")).upper().replace(" ", "").replace("-", "")
+                if cand_norm == norm_id:
+                    matched_cand = cand
+                    break
+
+        if matched_cand:
+            dims = matched_cand.get("dimensions", {})
+            mtype = matched_cand.get("member_type", extraction.member_type).lower()
+            extraction.member_type = mtype
+            if mtype == "column":
+                col_w = float(dims.get("width_mm") or 300.0)
+                col_d = float(dims.get("depth_mm") or 450.0)
+                storey_h = float(dims.get("storey_height_mm") or dims.get("height_mm") or 3000.0)
+                main_dia = float(matched_cand.get("main_bar_diameter_mm") or 16.0)
+                n_bars = int(matched_cand.get("num_bars") or 8)
+                sec_dia = float(matched_cand.get("secondary_bar_diameter_mm") or 8.0)
+                grade_c = matched_cand.get("concrete_grade") or "M25"
+                grade_s = matched_cand.get("steel_grade") or "FE500"
+                tie_end = float(dims.get("tie_spacing_end_mm")) if dims.get("tie_spacing_end_mm") else None
+                end_len = float(dims.get("end_zone_length_mm")) if dims.get("end_zone_length_mm") else None
+                tie_mid = float(dims.get("tie_spacing_mid_mm")) if dims.get("tie_spacing_mid_mm") else None
+
+                from app.engineering.models import ColumnBarRequest
+                extraction.column_request = ColumnBarRequest(
+                    member_id=entity_id,
+                    bar_diameter_mm=main_dia,
+                    num_bars=n_bars,
+                    storey_height_mm=storey_h,
+                    column_width_mm=col_w,
+                    column_depth_mm=col_d,
+                    footing_embedment_mm=float(dims.get("footing_embedment_mm") or 0.0),
+                    bend_allowance_mm=float(dims.get("bend_allowance_mm") or 300.0),
+                    tie_bar_dia_mm=sec_dia,
+                    tie_spacing_mm=float(dims.get("spacing_mm") or 150.0),
+                    tie_spacing_end_mm=tie_end,
+                    end_zone_length_mm=end_len,
+                    tie_spacing_mid_mm=tie_mid,
+                    concrete_grade=grade_c,
+                    steel_grade=grade_s,
+                    source_references=matched_cand.get("citations") or [f"drawing:{entity_id}"],
+                    use_is_code_rules=True,
+                    deduct_bends=True,
+                )
 
         mtype = extraction.member_type
         calc_result: BBSCalculationResult | None = None

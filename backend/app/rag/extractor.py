@@ -578,36 +578,58 @@ def regex_extract_drawing_dimensions(
 
     else:
         # Default Column
-        rebar_patterns = [
-            r"(?:Y|T|TOR|#|dia|Ø)\s*[-]?\s*(8|10|12|16|20|25|28|32|36|40)\b",
-            r"\b(8|10|12|16|20|25|28|32|36|40)\s*(?:mm\s*dia|mm\s*bars?|mm\s*diameter|T\b|#\b|Tor\b|Y\b|Ø\b)",
-            r"\b(?:rebar|bar)\s*(?:dia(?:meter)?)?\s*(?:is|=|:)?\s*(8|10|12|16|20|25|28|32|36|40)\b",
-            r"\b(8|10|12|16|20|25|28|32|36|40)\s*mm\b",
-        ]
+        # 1. Search for column longitudinal / main reinforcement
+        # Covers:
+        # - "Longitudinal reinforcement: 8 bars Ø16 mm"
+        # - "4-T16 longitudinal rebar" or "4-T16 main rebar"
+        # - "8 bars Ø16 mm"
+        # - "4-T16", "6-T20"
+        main_long_match = re.search(
+            r"(?:longitudinal|main)\s*(?:reinforcement|rebar|bars?|steel)?\s*[:=–—\-]?\s*(?:(?:of)?\s*(\d+)\s*bars?\s*(?:of|dia)?)?\s*(?:Y|T|TOR|#|dia|Ø)?\s*(12|16|20|25|28|32|36|40)\b|"
+            r"(\d+)\s*[-]?\s*(?:Y|T|TOR|#|dia|Ø)\s*(12|16|20|25|28|32|36|40)\s*(?:longitudinal|main|rebar|bars?)?|"
+            r"(\d+)\s*bars?\s*(?:of|dia)?\s*(?:Y|T|TOR|#|dia|Ø)?\s*(12|16|20|25|28|32|36|40)\b",
+            text,
+            re.IGNORECASE,
+        )
         col_dia: float | None = None
-        for pattern in rebar_patterns:
-            match = re.search(pattern, text, re.IGNORECASE)
-            if match:
-                col_dia = float(match.group(1))
-                break
+        col_num_bars = 4
+
+        if main_long_match:
+            n_raw = main_long_match.group(1) or main_long_match.group(3) or main_long_match.group(5)
+            d_raw = main_long_match.group(2) or main_long_match.group(4) or main_long_match.group(6)
+            if d_raw:
+                col_dia = float(d_raw)
+            if n_raw:
+                col_num_bars = int(n_raw)
+        else:
+            # Fallback patterns for column longitudinal bars (minimum 12 mm per IS 456 Cl. 26.5.3.1; ignore 6/8 mm ties)
+            rebar_patterns = [
+                r"(?:Y|T|TOR|#|dia|Ø)\s*[-]?\s*(12|16|20|25|28|32|36|40)\b",
+                r"\b(12|16|20|25|28|32|36|40)\s*(?:mm\s*dia|mm\s*bars?|mm\s*diameter|T\b|#\b|Tor\b|Y\b|Ø\b)",
+                r"\b(?:rebar|bar)\s*(?:dia(?:meter)?)?\s*(?:is|=|:)?\s*(12|16|20|25|28|32|36|40)\b",
+            ]
+            for pattern in rebar_patterns:
+                match = re.search(pattern, text, re.IGNORECASE)
+                if match:
+                    col_dia = float(match.group(1))
+                    break
+
+            # Longitudinal bar count (e.g. "8 bars Ø16 mm", "8-T16", "4-T16", "6 bars")
+            num_bars_match = re.search(
+                r"(\d+)\s*(?:bars?\s*(?:of|dia)?\s*)?(?:Y|T|TOR|#|dia|Ø)\s*(?:12|16|20|25|28|32|36|40)\b|"
+                r"(\d+)\s*[-]?\s*(?:Y|T|TOR|#|dia|Ø)\s*(?:12|16|20|25|28|32|36|40)\b|"
+                r"(?:longitudinal\s*(?:reinforcement|rebar)?|main\s*(?:reinforcement|rebar)?)\s*[:=]?\s*(\d+)\s*bars?",
+                text,
+                re.IGNORECASE,
+            )
+            if num_bars_match:
+                n_raw = num_bars_match.group(1) or num_bars_match.group(2) or num_bars_match.group(3)
+                if n_raw:
+                    col_num_bars = int(n_raw)
 
         if not col_dia:
             missing.append("bar_diameter_mm")
             notes.append("Bar diameter not explicitly found in drawing text.")
-
-        # Longitudinal bar count (e.g. "8 bars Ø16 mm", "8-T16", "4-T16", "6 bars")
-        num_bars_match = re.search(
-            r"(\d+)\s*(?:bars?\s*(?:of|dia)?\s*)?(?:Y|T|TOR|#|dia|Ø)\s*(?:8|10|12|16|20|25|28|32|36|40)\b|"
-            r"(\d+)\s*[-]?\s*(?:Y|T|TOR|#|dia|Ø)\s*(?:8|10|12|16|20|25|28|32|36|40)\b|"
-            r"(?:longitudinal\s*(?:reinforcement|rebar)?|main\s*(?:reinforcement|rebar)?)\s*[:=]?\s*(\d+)\s*bars?",
-            text,
-            re.IGNORECASE,
-        )
-        col_num_bars = 4
-        if num_bars_match:
-            n_raw = num_bars_match.group(1) or num_bars_match.group(2) or num_bars_match.group(3)
-            if n_raw:
-                col_num_bars = int(n_raw)
 
         # Storey height extraction
         h_match = re.search(r"(?:storey|floor|clear)?\s*height\s*(?:is|=|:)?\s*(\d{3,5})\s*mm", text, re.IGNORECASE)
@@ -623,7 +645,7 @@ def regex_extract_drawing_dimensions(
             missing.append("storey_height_mm")
             notes.append("Storey height could not be confirmed from drawing evidence.")
 
-        col_dims = re.search(r"(\d{3,4})\s*mm?\s*x\s*(\d{3,4})\s*mm?", text, re.IGNORECASE)
+        col_dims = re.search(r"(\d{3,4})\s*(?:mm)?\s*[xX*×]\s*(\d{3,4})\s*(?:mm)?", text)
         col_w = float(col_dims.group(1)) if col_dims else None
         col_d = float(col_dims.group(2)) if col_dims else None
 

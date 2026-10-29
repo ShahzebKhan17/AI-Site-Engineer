@@ -34,3 +34,42 @@ def test_consolidated_project_bbs_zero_state_without_demo_fallback() -> None:
     assert res.total_steel_tonnes == 0.0
     assert len(res.items) == 0
     assert len(res.diameter_summaries) == 0
+
+
+def test_consolidated_project_bbs_uses_candidate_members_cache_c01() -> None:
+    candidate_c01 = {
+        "member_id": "C-01",
+        "member_type": "column",
+        "num_bars": 8,
+        "main_bar_diameter_mm": 16.0,
+        "secondary_bar_diameter_mm": 8.0,
+        "concrete_grade": "M25",
+        "steel_grade": "FE500",
+        "dimensions": {
+            "width_mm": 300.0,
+            "depth_mm": 450.0,
+            "storey_height_mm": 3000.0,
+            "tie_spacing_end_mm": 100.0,
+            "end_zone_length_mm": 300.0,
+            "tie_spacing_mid_mm": 150.0,
+        },
+    }
+    res = generate_consolidated_project_bbs(
+        chunks=[{"id": "c1", "content": "Column C-01 details", "entity_code": "C-01"}],
+        project_id="Structural Project",
+        candidate_members_cache=[candidate_c01],
+    )
+    assert res.total_members_count == 1
+    assert len(res.items) == 2
+
+    # Verify Main Longitudinal rebar is 16mm (NOT 8mm)
+    main_item = next(it for it in res.items if it.bar_mark == "Main Longitudinal")
+    assert main_item.bar_diameter_mm == 16.0
+    assert main_item.num_bars == 8
+
+    # Verify Lateral Ties cutting length is 1.244m (NOT 0.944m)
+    tie_item = next(it for it in res.items if "Lateral Ties" in it.bar_mark)
+    assert tie_item.bar_diameter_mm == 8.0
+    assert tie_item.cutting_length_m == 1.244
+    assert tie_item.cutting_length_mm == 1244.0
+

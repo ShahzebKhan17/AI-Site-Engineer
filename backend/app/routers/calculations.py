@@ -293,6 +293,7 @@ def calculate_from_reviewed_parameters(request: ParameterCalculationRequest) -> 
 class ProjectBBSRequest(BaseModel):
     project_id: str = "Structural Project"
     candidate_chunks_cache: list[dict[str, Any]] | None = None
+    candidate_members_cache: list[dict[str, Any]] | None = None
     allow_demo_fallback: bool = False
 
 
@@ -300,15 +301,22 @@ class ProjectBBSRequest(BaseModel):
 def get_project_bbs(request: ProjectBBSRequest | None = None) -> ProjectBBSResponse:
     """Generate consolidated multi-member Bar Bending Schedule and procurement steel breakdown."""
     chunks = request.candidate_chunks_cache if request else None
+    members = request.candidate_members_cache if request else None
     proj_id = request.project_id if request else "Structural Project"
     allow_demo = request.allow_demo_fallback if request else False
-    return generate_consolidated_project_bbs(chunks=chunks, project_id=proj_id, allow_demo_fallback=allow_demo)
+    return generate_consolidated_project_bbs(
+        chunks=chunks,
+        project_id=proj_id,
+        allow_demo_fallback=allow_demo,
+        candidate_members_cache=members,
+    )
 
 
 class OptimizationRequest(BaseModel):
     project_id: str = "Structural Project"
     items: list[dict[str, Any]] | None = None
     candidate_chunks_cache: list[dict[str, Any]] | None = None
+    candidate_members_cache: list[dict[str, Any]] | None = None
     allow_demo_fallback: bool = False
 
 
@@ -321,8 +329,14 @@ def optimize_rebar_cutting_patterns(request: OptimizationRequest | None = None) 
     if not target_items:
         # Default to consolidated project items
         chunks = request.candidate_chunks_cache if request else None
+        members = request.candidate_members_cache if request else None
         allow_demo = request.allow_demo_fallback if request else False
-        proj_bbs = generate_consolidated_project_bbs(chunks=chunks, project_id=proj_id, allow_demo_fallback=allow_demo)
+        proj_bbs = generate_consolidated_project_bbs(
+            chunks=chunks,
+            project_id=proj_id,
+            allow_demo_fallback=allow_demo,
+            candidate_members_cache=members,
+        )
         target_items = [
             {
                 "member_id": it.member_id,
