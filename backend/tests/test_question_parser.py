@@ -29,3 +29,20 @@ def test_parses_raft_numbered_foundation_question() -> None:
     assert parsed.member_id == "RF1"
     assert parsed.calculation_intent == "cutting_length"
     assert not parsed.needs_clarification
+
+
+def test_parses_hyphenated_column_concrete_question() -> None:
+    parsed = parse_drawing_question("what is the quantity of concrete required for the column C-01")
+    assert parsed.member_type == "column"
+    assert parsed.member_id == "C-01"
+    assert parsed.calculation_intent == "concrete_volume"
+    assert not parsed.needs_clarification
+
+
+def test_parses_hyphenated_code_without_member_word() -> None:
+    parsed = parse_drawing_question("what is the quantity of concrete required for the C-01")
+    assert parsed.member_type == "column"
+    assert parsed.member_id == "C-01"
+    assert parsed.calculation_intent == "concrete_volume"
+    assert not parsed.needs_clarification
+

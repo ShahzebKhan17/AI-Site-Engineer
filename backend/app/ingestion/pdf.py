@@ -36,50 +36,50 @@ def detect_entity_in_text(text: str) -> tuple[str | None, str | None]:
     """Identify structural member identifier from text snippet."""
     import re
     # Check multi-letter prefixes first to prevent partial match collisions (e.g. PC before P)
-    pile_cap_match = re.search(r"\b(?:pile\s*cap\s*(?:no\.?\s*)?)?(PC\d+)\b", text, re.IGNORECASE)
+    pile_cap_match = re.search(r"\b(?:pile\s*cap\s*(?:no\.?\s*)?)?(PC[-\s]?\d+)\b", text, re.IGNORECASE)
     if pile_cap_match:
-        return pile_cap_match.group(1).upper(), "pile_cap"
+        return pile_cap_match.group(1).upper().replace(" ", ""), "pile_cap"
 
     # Raft foundation detection (support RAFT, RF1, or reinforcement typical schedule for raft)
-    raft_match = re.search(r"\b(?:raft\s*(?:foundation|footing|slab)?\s*(?:no\.?\s*)?(RF\d+|R\d+)?)\b|\b(RF\d+)\b", text, re.IGNORECASE)
+    raft_match = re.search(r"\b(?:raft\s*(?:foundation|footing|slab)?\s*(?:no\.?\s*)?(RF[-\s]?\d+|R[-\s]?\d+)?)\b|\b(RF[-\s]?\d+)\b", text, re.IGNORECASE)
     if (raft_match and (raft_match.group(1) or raft_match.group(2) or "raft" in text.lower())) or ("reinforcement typical schedule" in text.lower() and "raft" in text.lower()) or re.search(r"\braft\b", text, re.IGNORECASE):
-        code = (raft_match.group(1) or raft_match.group(2) if raft_match and (raft_match.group(1) or raft_match.group(2)) else "RAFT").upper()
+        code = (raft_match.group(1) or raft_match.group(2) if raft_match and (raft_match.group(1) or raft_match.group(2)) else "RAFT").upper().replace(" ", "")
         return code, "footing"
 
-    pier_match = re.search(r"\b(?:pier|pedestal)\s*(?:no\.?\s*)?(P[RD]\d+)\b|\b(P[RD]\d+)\b", text, re.IGNORECASE)
+    pier_match = re.search(r"\b(?:pier|pedestal)\s*(?:no\.?\s*)?(P[RD][-\s]?\d+)\b|\b(P[RD][-\s]?\d+)\b", text, re.IGNORECASE)
     if pier_match:
         code = pier_match.group(1) or pier_match.group(2)
-        return code.upper(), "pier"
+        return code.upper().replace(" ", ""), "pier"
 
-    stair_match = re.search(r"\b(?:stair(?:case)?\s*(?:no\.?\s*)?)?(S[TC]\d+)\b|\b(S[TC]\d+)\b", text, re.IGNORECASE)
+    stair_match = re.search(r"\b(?:stair(?:case)?\s*(?:no\.?\s*)?)?(S[TC][-\s]?\d+)\b|\b(S[TC][-\s]?\d+)\b", text, re.IGNORECASE)
     if stair_match:
         code = stair_match.group(1) or stair_match.group(2)
-        return code.upper(), "staircase"
+        return code.upper().replace(" ", ""), "staircase"
 
-    rw_match = re.search(r"\b(?:retaining\s*wall\s*(?:no\.?\s*)?)?(RW\d+|RET\d+)\b", text, re.IGNORECASE)
+    rw_match = re.search(r"\b(?:retaining\s*wall\s*(?:no\.?\s*)?)?(RW[-\s]?\d+|RET[-\s]?\d+)\b", text, re.IGNORECASE)
     if rw_match:
-        return rw_match.group(1).upper(), "retaining_wall"
+        return rw_match.group(1).upper().replace(" ", ""), "retaining_wall"
 
-    column_match = re.search(r"\b(?:column\s*(?:no\.?\s*)?)?(C\d+)\b", text, re.IGNORECASE)
+    column_match = re.search(r"\b(?:column\s*(?:no\.?\s*)?)?(C[-\s]?\d+)\b", text, re.IGNORECASE)
     if column_match:
-        return column_match.group(1).upper(), "column"
+        return column_match.group(1).upper().replace(" ", ""), "column"
 
-    beam_match = re.search(r"\b(?:beam\s*(?:no\.?\s*)?)?(B\d+)\b", text, re.IGNORECASE)
+    beam_match = re.search(r"\b(?:beam\s*(?:no\.?\s*)?)?(B[-\s]?\d+)\b", text, re.IGNORECASE)
     if beam_match:
-        return beam_match.group(1).upper(), "beam"
+        return beam_match.group(1).upper().replace(" ", ""), "beam"
 
-    footing_match = re.search(r"\b(?:(?:isolated\s+|raft\s+)?footing\s*(?:no\.?\s*)?(F\d+)?|(F\d+))\b", text, re.IGNORECASE)
+    footing_match = re.search(r"\b(?:(?:isolated\s+|raft\s+)?footing\s*(?:no\.?\s*)?(F[-\s]?\d+)?|(F[-\s]?\d+))\b", text, re.IGNORECASE)
     if footing_match:
         f_code = footing_match.group(1) or footing_match.group(2) or "FOOTING"
-        return f_code.upper(), "footing"
+        return f_code.upper().replace(" ", ""), "footing"
 
-    pile_match = re.search(r"\b(?:pile\s*(?:no\.?\s*)?)?(P\d+)\b", text, re.IGNORECASE)
+    pile_match = re.search(r"\b(?:pile\s*(?:no\.?\s*)?)?(P[-\s]?\d+)\b", text, re.IGNORECASE)
     if pile_match:
-        return pile_match.group(1).upper(), "pile"
+        return pile_match.group(1).upper().replace(" ", ""), "pile"
 
-    slab_match = re.search(r"\b(?:slab\s*(?:no\.?\s*)?)?(S\d+)\b", text, re.IGNORECASE)
+    slab_match = re.search(r"\b(?:slab\s*(?:no\.?\s*)?)?(S[-\s]?\d+)\b", text, re.IGNORECASE)
     if slab_match:
-        return slab_match.group(1).upper(), "slab"
+        return slab_match.group(1).upper().replace(" ", ""), "slab"
 
     return None, None
 

@@ -26,6 +26,7 @@ class AskQuestionRequest(BaseModel):
     drawing_id: str | None = None
     filter_entity_code: str | None = None
     candidate_chunks_cache: list[dict[str, Any]] | None = None
+    candidate_members_cache: list[dict[str, Any]] | None = None
 
 
 class OrchestratedCalculationResponse(BaseModel):
@@ -47,6 +48,30 @@ def orchestrate_drawing_question(
     rag_client = client or SupabaseRAGClient()
     parsed = parse_drawing_question(request.question)
     target_entity = request.filter_entity_code or parsed.member_id
+
+    # Check candidate members cache for exact or type match
+    matched_candidate: dict[str, Any] | None = None
+    if request.candidate_members_cache:
+        target_norm = (target_entity or "").strip().upper().replace(" ", "").replace("-", "")
+        for m in request.candidate_members_cache:
+            mid = str(m.get("member_id", "")).strip().upper()
+            mid_norm = mid.replace(" ", "").replace("-", "")
+            if mid == target_entity or (target_norm and target_norm in mid_norm):
+                matched_candidate = m
+                target_entity = mid
+                break
+
+        if not matched_candidate:
+            type_matches = [
+                m for m in request.candidate_members_cache
+                if str(m.get("member_type", "")).lower() == (parsed.member_type or "").lower()
+            ]
+            if len(type_matches) == 1:
+                matched_candidate = type_matches[0]
+                target_entity = matched_candidate.get("member_id")
+            elif len(request.candidate_members_cache) == 1:
+                matched_candidate = request.candidate_members_cache[0]
+                target_entity = matched_candidate.get("member_id")
 
     warnings: list[str] = []
 
@@ -92,6 +117,50 @@ def orchestrate_drawing_question(
         member_id=target_entity,
         member_type=parsed.member_type,
     )
+
+    # Step 2b: Overlay verified dimensions from matched candidate member if present
+    if matched_candidate:
+        extraction_output.member_id = matched_candidate.get("member_id", target_entity or "MEMBER")
+        extraction_output.member_type = matched_candidate.get("member_type", parsed.member_type or "column").lower()
+        dims = matched_candidate.get("dimensions", {})
+        mtype = extraction_output.member_type
+
+        if mtype == "column":
+            col_w = float(dims.get("width_mm") or 300.0)
+            col_d = float(dims.get("depth_mm") or 450.0)
+            storey_h = float(dims.get("storey_height_mm") or dims.get("height_mm") or 3000.0)
+            main_dia = float(matched_candidate.get("main_bar_diameter_mm") or 16.0)
+            n_bars = int(matched_candidate.get("num_bars") or 8)
+            sec_dia = float(matched_candidate.get("secondary_bar_diameter_mm") or 8.0)
+            grade_c = matched_candidate.get("concrete_grade") or "M25"
+            grade_s = matched_candidate.get("steel_grade") or "FE500"
+            tie_end = float(dims.get("tie_spacing_end_mm")) if dims.get("tie_spacing_end_mm") else None
+            end_len = float(dims.get("end_zone_length_mm")) if dims.get("end_zone_length_mm") else None
+            tie_mid = float(dims.get("tie_spacing_mid_mm")) if dims.get("tie_spacing_mid_mm") else None
+
+            from app.engineering.models import ColumnBarRequest
+            extraction_output.column_request = ColumnBarRequest(
+                member_id=extraction_output.member_id,
+                bar_diameter_mm=main_dia,
+                num_bars=n_bars,
+                storey_height_mm=storey_h,
+                column_width_mm=col_w,
+                column_depth_mm=col_d,
+                footing_embedment_mm=float(dims.get("footing_embedment_mm") or 0.0),
+                bend_allowance_mm=float(dims.get("bend_allowance_mm") or 300.0),
+                tie_bar_dia_mm=sec_dia,
+                tie_spacing_mm=float(dims.get("spacing_mm") or 150.0),
+                tie_spacing_end_mm=tie_end,
+                end_zone_length_mm=end_len,
+                tie_spacing_mid_mm=tie_mid,
+                concrete_grade=grade_c,
+                steel_grade=grade_s,
+                source_references=matched_candidate.get("citations") or [f"drawing:{extraction_output.member_id}"],
+                use_is_code_rules=True,
+                deduct_bends=True,
+            )
+            extraction_output.missing_fields = []
+            extraction_output.confidence = 1.0
 
     if extraction_output.missing_fields:
         warnings.append(

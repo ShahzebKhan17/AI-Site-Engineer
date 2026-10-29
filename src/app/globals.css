@@ -463,27 +463,26 @@ body {
 }
 
 .drawing-delete-btn {
-  width: 28px;
-  height: 28px;
-  min-width: 28px;
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: rgba(159, 18, 57, 0.35);
-  border: 1px solid rgba(244, 63, 94, 0.5);
-  border-radius: 6px;
+  background: rgba(244, 63, 94, 0.12);
+  border: 1px solid rgba(244, 63, 94, 0.28);
+  border-radius: 4px;
   color: #fb7185;
   cursor: pointer;
   transition: all 0.2s ease;
   padding: 0;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
 .drawing-delete-btn:hover {
-  background: rgba(225, 29, 72, 0.7);
+  background: rgba(225, 29, 72, 0.75);
   border-color: #f43f5e;
   color: #ffffff;
-  box-shadow: 0 0 12px rgba(244, 63, 94, 0.5);
+  box-shadow: 0 0 8px rgba(244, 63, 94, 0.4);
   transform: scale(1.05);
 }
 

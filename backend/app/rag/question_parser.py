@@ -12,18 +12,18 @@ class DrawingQuestion(BaseModel):
 
 
 MEMBER_PATTERNS = {
-    "pile_cap": re.compile(r"\b(?:pile\s*cap\s*(?:no\.?\s*)?)?(PC\d+)\b", re.IGNORECASE),
-    "pier": re.compile(r"\b(?:pier|pedestal)\s*(?:no\.?\s*)?(P[RD]\d+)\b|\b(P[RD]\d+)\b", re.IGNORECASE),
-    "staircase": re.compile(r"\b(?:stair(?:case)?\s*(?:no\.?\s*)?)?(S[TC]\d+)\b|\b(S[TC]\d+)\b", re.IGNORECASE),
-    "retaining_wall": re.compile(r"\b(?:retaining\s*wall\s*(?:no\.?\s*)?)?(RW\d+|RET\d+)\b", re.IGNORECASE),
-    "column": re.compile(r"\b(?:column\s*(?:no\.?\s*)?)?(C\d+)\b", re.IGNORECASE),
-    "beam": re.compile(r"\b(?:beam\s*(?:no\.?\s*)?)?(B\d+)\b", re.IGNORECASE),
+    "pile_cap": re.compile(r"\b(?:pile\s*cap\s*(?:no\.?\s*)?)?(PC[-\s]?\d+)\b", re.IGNORECASE),
+    "pier": re.compile(r"\b(?:pier|pedestal)\s*(?:no\.?\s*)?(P[RD][-\s]?\d+)\b|\b(P[RD][-\s]?\d+)\b", re.IGNORECASE),
+    "staircase": re.compile(r"\b(?:stair(?:case)?\s*(?:no\.?\s*)?)?(S[TC][-\s]?\d+)\b|\b(S[TC][-\s]?\d+)\b", re.IGNORECASE),
+    "retaining_wall": re.compile(r"\b(?:retaining\s*wall\s*(?:no\.?\s*)?)?(RW[-\s]?\d+|RET[-\s]?\d+)\b", re.IGNORECASE),
+    "column": re.compile(r"\b(?:column\s*(?:no\.?\s*)?)?(C[-\s]?\d+)\b", re.IGNORECASE),
+    "beam": re.compile(r"\b(?:beam\s*(?:no\.?\s*)?)?(B[-\s]?\d+)\b", re.IGNORECASE),
     "footing": re.compile(
-        r"\b(?:raft\s*(?:foundation|footing|slab)?\s*(?:no\.?\s*)?(RF\d+|R\d+)?|isolated\s*footing\s*(?:no\.?\s*)?(F\d+)?|footing\s*(?:no\.?\s*)?(F\d+)?|foundation\s*(?:no\.?\s*)?(F\d+|RF\d+)?|(F\d+)|(RF\d+)|raft)\b",
+        r"\b(?:raft\s*(?:foundation|footing|slab)?\s*(?:no\.?\s*)?(RF[-\s]?\d+|R[-\s]?\d+)?|isolated\s*footing\s*(?:no\.?\s*)?(F[-\s]?\d+)?|footing\s*(?:no\.?\s*)?(F[-\s]?\d+)?|foundation\s*(?:no\.?\s*)?(F[-\s]?\d+|RF[-\s]?\d+)?|(F[-\s]?\d+)|(RF[-\s]?\d+)|raft)\b",
         re.IGNORECASE,
     ),
-    "pile": re.compile(r"\b(?:pile\s*(?:no\.?\s*)?)?(P\d+)\b", re.IGNORECASE),
-    "slab": re.compile(r"\b(?:slab\s*(?:no\.?\s*)?)?(S\d+)\b", re.IGNORECASE),
+    "pile": re.compile(r"\b(?:pile\s*(?:no\.?\s*)?)?(P[-\s]?\d+)\b", re.IGNORECASE),
+    "slab": re.compile(r"\b(?:slab\s*(?:no\.?\s*)?)?(S[-\s]?\d+)\b", re.IGNORECASE),
 }
 
 GENERIC_MEMBER_PATTERNS = {

@@ -189,8 +189,8 @@ function StructuredAiAnswerView({ answer }: { answer: string }) {
     (answer.toLowerCase().includes("wet concrete") && answer.toLowerCase().includes("dry volume"));
 
   if (isConcrete) {
-    const wetVolMatch = answer.match(/(?:Wet Concrete Volume|Wet Volume)[^\d]*([\d.]+)\s*(?:m³|cu\.m|m3)?/i);
-    const dryVolMatch = answer.match(/(?:Dry Volume|Dry Concrete Volume)[^\d]*([\d.]+)\s*(?:m³|cu\.m|m3)?/i);
+    const wetVolMatch = answer.match(/(?:Wet Concrete Volume|Wet Volume)[:\*\s]+([\d.]+)/i);
+    const dryVolMatch = answer.match(/Dry (?:Batch )?Volume(?:\s*\([^)]*\))?[:\*\s]+([\d.]+)/i);
     const gradeMatch = answer.match(/Concrete Grade[:\*\s]+([A-Za-z0-9]+)/i);
     const cementMatch = answer.match(/Cement Required[:\*\s]+([\d.]+)\s*bags?(?:\s*\([^)]*\))?/i);
     const sandMatch = answer.match(/Sand[^:]*[:\*\s]+([\d.]+)\s*(?:m³|cu\.m|m3)?/i);
@@ -759,6 +759,7 @@ export default function Home() {
         body: JSON.stringify({
           question: effectiveQuery,
           candidate_chunks_cache: uploadedChunks.length > 0 ? uploadedChunks : undefined,
+          candidate_members_cache: extractedMembers.length > 0 ? extractedMembers : undefined,
         }),
       });
 
@@ -2038,9 +2039,9 @@ export default function Home() {
               className="console-action-btn"
               onClick={() => handleExecuteQuery()}
               disabled={isLoading}
-              title="Calculate Member BBS"
+              title="Ask Engineer"
             >
-              {isLoading ? "Running Engine..." : "Calculate Member BBS"}
+              {isLoading ? "Consulting Engineer..." : "Ask Engineer"}
               <span aria-hidden="true">→</span>
             </button>
           </div>
@@ -2102,7 +2103,7 @@ export default function Home() {
                         aria-label={`Remove ${dwg.name}`}
                         className="drawing-delete-btn shrink-0"
                       >
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
                         </svg>
                       </button>
