@@ -421,7 +421,8 @@ export default function Home() {
   // Supabase Auth & Session State
   const [user, setUser] = useState<{ id?: string; email?: string; user_metadata?: any } | null>(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
+  const [authMode, setAuthMode] = useState<"signin" | "signup" | "forgot" | "reset">("signin");
+  const [showPassword, setShowPassword] = useState(false);
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [authFullName, setAuthFullName] = useState("");
@@ -462,6 +463,17 @@ export default function Home() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    // Check if redirected from password reset email
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get("reset_password") === "true") {
+        setAuthMode("reset");
+        setAuthModalOpen(true);
+        setAuthNotice("Please enter your new password below.");
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    }
+
     const supabase = getSupabase();
     if (supabase) {
       supabase.auth.getSession().then(({ data: { session } }) => {
@@ -479,7 +491,12 @@ export default function Home() {
           }
         }
       });
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        if (event === "PASSWORD_RECOVERY") {
+          setAuthMode("reset");
+          setAuthModalOpen(true);
+          setAuthNotice("Please enter your new password below.");
+        }
         if (session?.user) {
           setUser({
             id: session.user.id,
@@ -532,6 +549,20 @@ export default function Home() {
     const supabase = getSupabase();
 
     if (!supabase) {
+      if (authMode === "forgot") {
+        setAuthNotice(`Password reset simulation link dispatched to ${authEmail} (local workspace mode).`);
+        triggerToast("Password reset simulation dispatched.");
+        setIsAuthLoading(false);
+        return;
+      }
+      if (authMode === "reset") {
+        triggerToast("Password successfully updated in local workspace.");
+        setAuthModalOpen(false);
+        setAuthMode("signin");
+        setAuthPassword("");
+        setIsAuthLoading(false);
+        return;
+      }
       setUser({
         id: "local-user",
         email: authEmail,
@@ -540,6 +571,41 @@ export default function Home() {
       if (authFullName) setEngineerName(authFullName);
       setAuthModalOpen(false);
       triggerToast(`Authenticated in local workspace mode as ${authEmail}.`);
+      setIsAuthLoading(false);
+      return;
+    }
+
+    if (authMode === "forgot") {
+      const redirectUrl = typeof window !== "undefined"
+        ? `${window.location.origin}/auth/callback?next=/?reset_password=true`
+        : undefined;
+      const { error } = await supabase.auth.resetPasswordForEmail(authEmail, {
+        redirectTo: redirectUrl,
+      });
+
+      if (error) {
+        setAuthNotice(error.message);
+      } else {
+        setAuthNotice("Password reset link sent! Please check your inbox (and spam folder) for the reset link.");
+        triggerToast("Password reset email dispatched from AI Site Engineer.");
+      }
+      setIsAuthLoading(false);
+      return;
+    }
+
+    if (authMode === "reset") {
+      const { error } = await supabase.auth.updateUser({
+        password: authPassword,
+      });
+
+      if (error) {
+        setAuthNotice(error.message);
+      } else {
+        triggerToast("Password successfully updated! You are logged in.");
+        setAuthModalOpen(false);
+        setAuthMode("signin");
+        setAuthPassword("");
+      }
       setIsAuthLoading(false);
       return;
     }
@@ -1797,7 +1863,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* PROFESSIONAL AUTH MODAL (Sign In / Register) */}
+      {/* PROFESSIONAL AUTH MODAL (Sign In / Register / Password Reset) */}
       {authModalOpen && (
         <div className="modal-backdrop" onClick={() => setAuthModalOpen(false)}>
           <div className="modal-card" style={{maxWidth: '420px'}} onClick={(e) => e.stopPropagation()}>
@@ -1805,7 +1871,13 @@ export default function Home() {
             {/* Header */}
             <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'6px'}}>
               <h3 style={{fontSize:'1.25rem', fontWeight:700, color:'#fff', margin:0}}>
-                {authMode === "signin" ? "Sign In" : "Create Your Account"}
+                {authMode === "signin"
+                  ? "Sign In"
+                  : authMode === "signup"
+                  ? "Create Your Account"
+                  : authMode === "forgot"
+                  ? "Reset Password"
+                  : "Set New Password"}
               </h3>
               <button
                 style={{background:'none', border:'none', color:'#94a3b8', cursor:'pointer', fontSize:'1.1rem', lineHeight:1, padding:'4px'}}
@@ -1818,36 +1890,42 @@ export default function Home() {
             <p style={{fontSize:'0.75rem', color:'#64748b', marginBottom:'24px', marginTop:0}}>
               {authMode === "signin"
                 ? "Welcome back to AI Site Engineer"
-                : "Get started with your free account"}
+                : authMode === "signup"
+                ? "Get started with your free account"
+                : authMode === "forgot"
+                ? "Enter your email to receive a password reset link"
+                : "Enter your new secure password below"}
             </p>
 
-            {/* Tab Pills */}
-            <div style={{display:'flex', gap:'8px', marginBottom:'24px'}}>
-              <button
-                type="button"
-                style={{
-                  flex:1, padding:'9px 0', borderRadius:'8px', fontSize:'0.8rem',
-                  fontWeight:600, border:'none', cursor:'pointer', transition:'all 0.2s',
-                  background: authMode === 'signin' ? 'var(--cyan-primary)' : '#1e293b',
-                  color: authMode === 'signin' ? '#030813' : '#94a3b8',
-                }}
-                onClick={() => { setAuthMode("signin"); setAuthNotice(null); }}
-              >
-                Sign In
-              </button>
-              <button
-                type="button"
-                style={{
-                  flex:1, padding:'9px 0', borderRadius:'8px', fontSize:'0.8rem',
-                  fontWeight:600, border:'none', cursor:'pointer', transition:'all 0.2s',
-                  background: authMode === 'signup' ? 'var(--cyan-primary)' : '#1e293b',
-                  color: authMode === 'signup' ? '#030813' : '#94a3b8',
-                }}
-                onClick={() => { setAuthMode("signup"); setAuthNotice(null); }}
-              >
-                Create Account
-              </button>
-            </div>
+            {/* Tab Pills (Sign In / Create Account) */}
+            {(authMode === "signin" || authMode === "signup") && (
+              <div style={{display:'flex', gap:'8px', marginBottom:'24px'}}>
+                <button
+                  type="button"
+                  style={{
+                    flex:1, padding:'9px 0', borderRadius:'8px', fontSize:'0.8rem',
+                    fontWeight:600, border:'none', cursor:'pointer', transition:'all 0.2s',
+                    background: authMode === 'signin' ? 'var(--cyan-primary)' : '#1e293b',
+                    color: authMode === 'signin' ? '#030813' : '#94a3b8',
+                  }}
+                  onClick={() => { setAuthMode("signin"); setAuthNotice(null); }}
+                >
+                  Sign In
+                </button>
+                <button
+                  type="button"
+                  style={{
+                    flex:1, padding:'9px 0', borderRadius:'8px', fontSize:'0.8rem',
+                    fontWeight:600, border:'none', cursor:'pointer', transition:'all 0.2s',
+                    background: authMode === 'signup' ? 'var(--cyan-primary)' : '#1e293b',
+                    color: authMode === 'signup' ? '#030813' : '#94a3b8',
+                  }}
+                  onClick={() => { setAuthMode("signup"); setAuthNotice(null); }}
+                >
+                  Create Account
+                </button>
+              </div>
+            )}
 
             {/* Notice banner */}
             {authNotice && (
@@ -1896,31 +1974,83 @@ export default function Home() {
                 </div>
               )}
 
-              {/* Email */}
-              <div>
-                <label style={{fontSize:'0.75rem', color:'#94a3b8', display:'block', marginBottom:'6px', fontWeight:500}}>Email address</label>
-                <input
-                  type="email"
-                  required
-                  placeholder="you@example.com"
-                  value={authEmail}
-                  onChange={(e) => setAuthEmail(e.target.value)}
-                  style={{width:'100%', boxSizing:'border-box', background:'#0f172a', border:'1px solid #334155', borderRadius:'8px', padding:'10px 14px', fontSize:'0.875rem', color:'#fff', outline:'none'}}
-                />
-              </div>
+              {/* Email — signin, signup, forgot */}
+              {authMode !== "reset" && (
+                <div>
+                  <label style={{fontSize:'0.75rem', color:'#94a3b8', display:'block', marginBottom:'6px', fontWeight:500}}>Email address</label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="you@example.com"
+                    value={authEmail}
+                    onChange={(e) => setAuthEmail(e.target.value)}
+                    style={{width:'100%', boxSizing:'border-box', background:'#0f172a', border:'1px solid #334155', borderRadius:'8px', padding:'10px 14px', fontSize:'0.875rem', color:'#fff', outline:'none'}}
+                  />
+                </div>
+              )}
 
-              {/* Password */}
-              <div>
-                <label style={{fontSize:'0.75rem', color:'#94a3b8', display:'block', marginBottom:'6px', fontWeight:500}}>Password</label>
-                <input
-                  type="password"
-                  required
-                  placeholder="Create a strong password"
-                  value={authPassword}
-                  onChange={(e) => setAuthPassword(e.target.value)}
-                  style={{width:'100%', boxSizing:'border-box', background:'#0f172a', border:'1px solid #334155', borderRadius:'8px', padding:'10px 14px', fontSize:'0.875rem', color:'#fff', outline:'none'}}
-                />
-              </div>
+              {/* Password — signin, signup, reset */}
+              {authMode !== "forgot" && (
+                <div>
+                  <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'6px'}}>
+                    <label style={{fontSize:'0.75rem', color:'#94a3b8', fontWeight:500}}>
+                      {authMode === "reset" ? "New Password" : "Password"}
+                    </label>
+                    {authMode === "signin" && (
+                      <button
+                        type="button"
+                        onClick={() => { setAuthMode("forgot"); setAuthNotice(null); }}
+                        style={{background:'none', border:'none', color:'var(--cyan-primary)', cursor:'pointer', fontSize:'0.75rem', padding:0}}
+                      >
+                        Forgot password?
+                      </button>
+                    )}
+                  </div>
+                  <div style={{position:'relative'}}>
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      required
+                      placeholder={authMode === "reset" ? "Enter your new strong password" : "Enter your password"}
+                      value={authPassword}
+                      onChange={(e) => setAuthPassword(e.target.value)}
+                      style={{width:'100%', boxSizing:'border-box', background:'#0f172a', border:'1px solid #334155', borderRadius:'8px', padding:'10px 42px 10px 14px', fontSize:'0.875rem', color:'#fff', outline:'none'}}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      style={{
+                        position:'absolute',
+                        right:'10px',
+                        top:'50%',
+                        transform:'translateY(-50%)',
+                        background:'none',
+                        border:'none',
+                        color:'#94a3b8',
+                        cursor:'pointer',
+                        padding:'4px',
+                        display:'flex',
+                        alignItems:'center',
+                        justifyContent:'center'
+                      }}
+                    >
+                      {showPassword ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/>
+                          <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/>
+                          <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/>
+                          <line x1="2" x2="22" y1="2" y2="22"/>
+                        </svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
+                          <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Submit */}
               <button
@@ -1930,13 +2060,17 @@ export default function Home() {
                 style={{width:'100%', marginTop:'4px'}}
               >
                 {isAuthLoading
-                  ? "Authenticating..."
+                  ? "Processing..."
                   : authMode === "signin"
                   ? "Sign In"
-                  : "Create Account"}
+                  : authMode === "signup"
+                  ? "Create Account"
+                  : authMode === "forgot"
+                  ? "Send Password Reset Link"
+                  : "Update Password"}
               </button>
 
-              {/* Footer link */}
+              {/* Footer links */}
               <p style={{textAlign:'center', fontSize:'0.75rem', color:'#64748b', margin:0}}>
                 {authMode === "signin" ? (
                   <>
@@ -1945,11 +2079,18 @@ export default function Home() {
                       Sign up
                     </button>
                   </>
-                ) : (
+                ) : authMode === "signup" ? (
                   <>
                     Already have an account?{" "}
                     <button type="button" style={{background:'none', border:'none', color:'var(--cyan-primary)', cursor:'pointer', fontSize:'0.75rem'}} onClick={() => { setAuthMode("signin"); setAuthNotice(null); }}>
                       Sign in
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    Remember your password?{" "}
+                    <button type="button" style={{background:'none', border:'none', color:'var(--cyan-primary)', cursor:'pointer', fontSize:'0.75rem'}} onClick={() => { setAuthMode("signin"); setAuthNotice(null); }}>
+                      Back to Sign In
                     </button>
                   </>
                 )}

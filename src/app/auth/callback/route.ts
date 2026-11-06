@@ -24,6 +24,7 @@ export async function GET(request: Request) {
     }
   }
 
-  // Redirect to application dashboard with verified session
-  return NextResponse.redirect(`${origin}${next}`);
+  // Redirect to application dashboard with verified session (or password reset if recovery)
+  const destination = type === "recovery" ? "/?reset_password=true" : next;
+  return NextResponse.redirect(`${origin}${destination}`);
 }
