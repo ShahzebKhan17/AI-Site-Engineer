@@ -463,18 +463,59 @@ export default function Home() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    // Check if redirected from password reset email
+    const supabase = getSupabase();
+
+    // Check for auth callback codes or recovery tokens in URL
     if (typeof window !== "undefined") {
       const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.get("reset_password") === "true") {
+      const code = urlParams.get("code");
+      const tokenHash = urlParams.get("token_hash");
+      const type = urlParams.get("type");
+      const isReset = urlParams.get("reset_password") === "true" || type === "recovery";
+
+      if (supabase && code) {
+        supabase.auth.exchangeCodeForSession(code).then(({ data, error }) => {
+          if (!error && data?.session) {
+            setUser({
+              id: data.session.user.id,
+              email: data.session.user.email,
+              user_metadata: data.session.user.user_metadata,
+            });
+            if (isReset) {
+              setAuthMode("reset");
+              setAuthModalOpen(true);
+              setAuthNotice("Please enter your new password below.");
+            } else {
+              triggerToast("Account verified successfully! Welcome to AI Site Engineer.");
+            }
+          }
+        });
+      } else if (supabase && tokenHash && type) {
+        supabase.auth.verifyOtp({ token_hash: tokenHash, type: type as any }).then(({ data, error }) => {
+          if (!error && data?.session) {
+            setUser({
+              id: data.session.user.id,
+              email: data.session.user.email,
+              user_metadata: data.session.user.user_metadata,
+            });
+            if (isReset) {
+              setAuthMode("reset");
+              setAuthModalOpen(true);
+              setAuthNotice("Please enter your new password below.");
+            }
+          }
+        });
+      } else if (isReset) {
         setAuthMode("reset");
         setAuthModalOpen(true);
         setAuthNotice("Please enter your new password below.");
+      }
+
+      if (code || tokenHash || type || isReset) {
         window.history.replaceState({}, document.title, window.location.pathname);
       }
     }
 
-    const supabase = getSupabase();
     if (supabase) {
       supabase.auth.getSession().then(({ data: { session } }) => {
         if (session?.user) {

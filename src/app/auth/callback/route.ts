@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -8,23 +7,16 @@ export async function GET(request: Request) {
   const type = searchParams.get("type");
   const next = searchParams.get("next") || "/";
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (supabaseUrl && supabaseAnonKey) {
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-    if (code) {
-      await supabase.auth.exchangeCodeForSession(code);
-    } else if (tokenHash && type) {
-      await supabase.auth.verifyOtp({
-        token_hash: tokenHash,
-        type: type as any,
-      });
-    }
+  // Forward auth tokens to client so browser-side Supabase client can exchange
+  // and persist the active session directly into localStorage
+  const targetParams = new URLSearchParams();
+  if (code) targetParams.set("code", code);
+  if (tokenHash) targetParams.set("token_hash", tokenHash);
+  if (type) targetParams.set("type", type);
+  if (type === "recovery" || next.includes("reset_password=true")) {
+    targetParams.set("reset_password", "true");
   }
 
-  // Redirect to application dashboard with verified session (or password reset if recovery)
-  const destination = type === "recovery" ? "/?reset_password=true" : next;
-  return NextResponse.redirect(`${origin}${destination}`);
+  const query = targetParams.toString();
+  return NextResponse.redirect(`${origin}/${query ? `?${query}` : ""}`);
 }
