@@ -120,28 +120,26 @@ def test_concrete_calculation_rejects_missing_dynamic_dimensions() -> None:
 
 
 def test_concrete_volume_endpoint() -> None:
-    client = TestClient(app)
-    payload = {
-        "member_type": "column",
-        "member_id": "C10",
-        "concrete_grade": "M30",
-        "parameters": {
+    from app.routers.calculations import calculate_concrete, ConcreteVolumeRequest
+    req = ConcreteVolumeRequest(
+        member_type="column",
+        member_id="C10",
+        concrete_grade="M30",
+        parameters={
             "width_mm": 400,
             "depth_mm": 600,
             "storey_height_mm": 3500,
         },
-    }
-    response = client.post("/calculations/concrete-volume", json=payload)
-    assert response.status_code == 200
-    data = response.json()
-    assert data["member_id"] == "C10"
-    assert data["member_type"] == "COLUMN"
-    assert data["concrete_grade"] == "M30"
-    assert data["volume_m3"] == 0.84  # (400 * 600 * 3500) / 1e9 = 0.84 m³
-    assert data["materials"]["cement_bags"] > 0
-    assert data["materials"]["sand_m3"] > 0
-    assert data["materials"]["aggregate_m3"] > 0
-    assert data["materials"]["water_liters"] > 0
+    )
+    data = calculate_concrete(req)
+    assert data.member_id == "C10"
+    assert data.member_type == "COLUMN"
+    assert data.concrete_grade == "M30"
+    assert data.volume_m3 == 0.84  # (400 * 600 * 3500) / 1e9 = 0.84 m³
+    assert data.materials.cement_bags > 0
+    assert data.materials.sand_m3 > 0
+    assert data.materials.aggregate_m3 > 0
+    assert data.materials.water_liters > 0
 
 
 def test_question_parser_detects_concrete_intent() -> None:

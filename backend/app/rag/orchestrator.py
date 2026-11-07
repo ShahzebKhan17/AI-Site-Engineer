@@ -3,7 +3,7 @@
 from typing import Any
 from pydantic import BaseModel, Field
 
-from app.engineering.calculators.beam import calculate_beam_bar_length
+from app.engineering.calculators.beam import calculate_beam_bar_length, calculate_beam_bbs
 from app.engineering.calculators.column import calculate_longitudinal_bar
 from app.engineering.calculators.footing import calculate_footing_mesh
 from app.engineering.calculators.pier import calculate_pier_bbs
@@ -38,6 +38,257 @@ class OrchestratedCalculationResponse(BaseModel):
     calculation: Any | None = None
     status: str
     review_warnings: list[str] = Field(default_factory=list)
+
+
+def overlay_candidate_member_dimensions(
+    extraction_output: ExtractionOutput,
+    matched_candidate: dict[str, Any],
+    fallback_type: str | None = None,
+) -> None:
+    """Overlay verified dimensions from matched candidate member across all supported structural types."""
+    import re
+    from app.engineering.calculators.beam import BeamBarRequest, BeamScheduleRequest
+    from app.engineering.calculators.footing import FootingMeshRequest
+    from app.engineering.calculators.pier import PierScheduleRequest
+    from app.engineering.calculators.pile import PileScheduleRequest
+    from app.engineering.calculators.pile_cap import PileCapScheduleRequest
+    from app.engineering.calculators.retaining_wall import RetainingWallScheduleRequest
+    from app.engineering.calculators.slab import SlabScheduleRequest
+    from app.engineering.calculators.staircase import StaircaseScheduleRequest
+    from app.engineering.models import ColumnBarRequest
+
+    extraction_output.member_id = matched_candidate.get("member_id", extraction_output.member_id or "MEMBER")
+    mtype = str(matched_candidate.get("member_type", fallback_type or extraction_output.member_type or "column")).lower().strip()
+    extraction_output.member_type = mtype
+    dims = matched_candidate.get("dimensions", {})
+    citations = matched_candidate.get("citations") or [f"drawing:{extraction_output.member_id}"]
+    grade_c = str(matched_candidate.get("concrete_grade") or "M25").upper()
+    grade_s = str(matched_candidate.get("steel_grade") or "FE500").upper()
+
+    if mtype == "beam":
+        reinf_text = f"{matched_candidate.get('reinforcement_summary', '')} {' '.join(str(n) for n in matched_candidate.get('notes', []))}"
+        bot_m = re.search(r"bottom.*?(\d+)\s*bars?.*?(\d+)\s*mm", reinf_text, re.IGNORECASE)
+        top_m = re.search(r"top.*?(\d+)\s*bars?.*?(\d+)\s*mm", reinf_text, re.IGNORECASE)
+        stir_m = re.search(r"stirrups?.*?(\d+)\s*mm.*?(\d+)\s*mm\s*c/?c", reinf_text, re.IGNORECASE) or re.search(r"stirrups?.*?(\d+)\s*mm.*?@\s*(\d+)", reinf_text, re.IGNORECASE)
+        cov_m = re.search(r"(?:nominal\s*cover|clear\s*cover|cover).*?(\d+)\s*mm", reinf_text, re.IGNORECASE)
+
+        b_count = int(matched_candidate.get("bottom_bars_count") or dims.get("bottom_bars_count") or (bot_m.group(1) if bot_m else (matched_candidate.get("num_bars") or 3)))
+        b_dia = float(matched_candidate.get("bottom_bar_dia_mm") or dims.get("bottom_bar_dia_mm") or (bot_m.group(2) if bot_m else (matched_candidate.get("main_bar_diameter_mm") or 16.0)))
+        t_count = int(matched_candidate.get("top_bars_count") or dims.get("top_bars_count") or (top_m.group(1) if top_m else 2))
+        t_dia = float(matched_candidate.get("top_bar_dia_mm") or dims.get("top_bar_dia_mm") or (top_m.group(2) if top_m else 12.0))
+        s_dia = float(matched_candidate.get("stirrup_dia_mm") or dims.get("stirrup_dia_mm") or (stir_m.group(1) if stir_m else (matched_candidate.get("secondary_bar_diameter_mm") or 8.0)))
+        s_pitch = float(matched_candidate.get("stirrup_spacing_mm") or dims.get("stirrup_spacing_mm") or (stir_m.group(2) if stir_m else (matched_candidate.get("spacing_mm") or 150.0)))
+        cov = float(matched_candidate.get("clear_cover_mm") or dims.get("clear_cover_mm") or dims.get("cover_mm") or (cov_m.group(1) if cov_m else 25.0))
+
+        span = float(dims.get("clear_span_mm") or dims.get("length_mm") or dims.get("storey_height_mm") or dims.get("height_mm") or 4000.0)
+        w = float(dims.get("width_mm") or dims.get("beam_width_mm") or 230.0)
+        d = float(dims.get("depth_mm") or dims.get("beam_depth_mm") or 450.0)
+        supp_w = float(dims.get("support_width_mm") or dims.get("left_support_width_mm") or 300.0)
+
+        extraction_output.beam_schedule_request = BeamScheduleRequest(
+            member_id=extraction_output.member_id,
+            clear_span_mm=span,
+            beam_width_mm=w,
+            beam_depth_mm=d,
+            left_support_width_mm=supp_w,
+            right_support_width_mm=supp_w,
+            clear_cover_mm=cov,
+            bottom_bars_count=b_count,
+            bottom_bar_dia_mm=b_dia,
+            top_bars_count=t_count,
+            top_bar_dia_mm=t_dia,
+            stirrup_dia_mm=s_dia,
+            stirrup_spacing_mm=s_pitch,
+            stirrup_legs=2,
+            concrete_grade=grade_c,
+            steel_grade=grade_s,
+            source_references=citations,
+            use_is_code_rules=True,
+            deduct_bends=True,
+        )
+        extraction_output.beam_request = BeamBarRequest(
+            member_id=extraction_output.member_id,
+            bar_diameter_mm=b_dia,
+            clear_span_mm=span,
+            beam_width_mm=w,
+            beam_depth_mm=d,
+            left_support_width_mm=supp_w,
+            right_support_width_mm=supp_w,
+            concrete_grade=grade_c,
+            steel_grade=grade_s,
+            source_references=citations,
+            use_is_code_rules=True,
+            deduct_bends=True,
+        )
+        extraction_output.missing_fields = []
+        extraction_output.confidence = 1.0
+
+    elif mtype == "column":
+        col_w = float(dims.get("width_mm") or 300.0)
+        col_d = float(dims.get("depth_mm") or 450.0)
+        storey_h = float(dims.get("storey_height_mm") or dims.get("height_mm") or 3000.0)
+        main_dia = float(matched_candidate.get("main_bar_diameter_mm") or 16.0)
+        n_bars = int(matched_candidate.get("num_bars") or 8)
+        sec_dia = float(matched_candidate.get("secondary_bar_diameter_mm") or 8.0)
+        tie_end = float(dims.get("tie_spacing_end_mm")) if dims.get("tie_spacing_end_mm") else None
+        end_len = float(dims.get("end_zone_length_mm")) if dims.get("end_zone_length_mm") else None
+        tie_mid = float(dims.get("tie_spacing_mid_mm")) if dims.get("tie_spacing_mid_mm") else None
+
+        extraction_output.column_request = ColumnBarRequest(
+            member_id=extraction_output.member_id,
+            bar_diameter_mm=main_dia,
+            num_bars=n_bars,
+            storey_height_mm=storey_h,
+            column_width_mm=col_w,
+            column_depth_mm=col_d,
+            footing_embedment_mm=float(dims.get("footing_embedment_mm") or 0.0),
+            bend_allowance_mm=float(dims.get("bend_allowance_mm") or 300.0),
+            tie_bar_dia_mm=sec_dia,
+            tie_spacing_mm=float(dims.get("spacing_mm") or 150.0),
+            tie_spacing_end_mm=tie_end,
+            end_zone_length_mm=end_len,
+            tie_spacing_mid_mm=tie_mid,
+            concrete_grade=grade_c,
+            steel_grade=grade_s,
+            source_references=citations,
+            use_is_code_rules=True,
+            deduct_bends=True,
+        )
+        extraction_output.missing_fields = []
+        extraction_output.confidence = 1.0
+
+    elif mtype in ("footing", "raft"):
+        extraction_output.footing_request = FootingMeshRequest(
+            member_id=extraction_output.member_id,
+            length_mm=float(dims.get("length_mm") or dims.get("footing_length_mm") or 2000.0),
+            width_mm=float(dims.get("width_mm") or dims.get("footing_width_mm") or 2000.0),
+            depth_mm=float(dims.get("depth_mm") or dims.get("footing_depth_mm") or 500.0),
+            bar_diameter_mm=float(matched_candidate.get("main_bar_diameter_mm") or 12.0),
+            spacing_mm=float(matched_candidate.get("spacing_mm") or 150.0),
+            clear_cover_mm=float(dims.get("clear_cover_mm") or 50.0),
+            concrete_grade=grade_c,
+            steel_grade=grade_s,
+            source_references=citations,
+        )
+        extraction_output.missing_fields = []
+        extraction_output.confidence = 1.0
+
+    elif mtype == "slab":
+        extraction_output.slab_request = SlabScheduleRequest(
+            member_id=extraction_output.member_id,
+            length_ly_mm=float(dims.get("length_ly_mm") or dims.get("length_mm") or 5000.0),
+            width_lx_mm=float(dims.get("width_lx_mm") or dims.get("width_mm") or 3500.0),
+            thickness_mm=float(dims.get("thickness_mm") or dims.get("depth_mm") or 150.0),
+            support_width_mm=float(dims.get("support_width_mm") or 230.0),
+            main_bar_dia_mm=float(matched_candidate.get("main_bar_diameter_mm") or 10.0),
+            main_bar_spacing_mm=float(matched_candidate.get("spacing_mm") or 150.0),
+            dist_bar_dia_mm=float(matched_candidate.get("secondary_bar_diameter_mm") or 8.0),
+            dist_bar_spacing_mm=float(dims.get("dist_bar_spacing_mm") or 175.0),
+            clear_cover_mm=float(dims.get("clear_cover_mm") or 20.0),
+            concrete_grade=grade_c,
+            steel_grade=grade_s,
+            source_references=citations,
+        )
+        extraction_output.missing_fields = []
+        extraction_output.confidence = 1.0
+
+    elif mtype == "pile":
+        extraction_output.pile_request = PileScheduleRequest(
+            member_id=extraction_output.member_id,
+            pile_diameter_mm=float(dims.get("pile_diameter_mm") or dims.get("width_mm") or 600.0),
+            pile_length_m=float(dims.get("pile_length_m") or ((dims.get("length_mm") or 12000.0) / 1000.0)),
+            embedment_into_cap_mm=float(dims.get("embedment_into_cap_mm") or 800.0),
+            main_bar_dia_mm=float(matched_candidate.get("main_bar_diameter_mm") or 20.0),
+            num_main_bars=int(matched_candidate.get("num_bars") or dims.get("num_bars") or 8),
+            spiral_bar_dia_mm=float(matched_candidate.get("secondary_bar_diameter_mm") or 8.0),
+            spiral_pitch_mm=float(matched_candidate.get("spacing_mm") or 150.0),
+            clear_cover_mm=float(dims.get("clear_cover_mm") or 50.0),
+            concrete_grade=grade_c,
+            steel_grade=grade_s,
+            source_references=citations,
+        )
+        extraction_output.missing_fields = []
+        extraction_output.confidence = 1.0
+
+    elif mtype == "pile_cap":
+        extraction_output.pile_cap_request = PileCapScheduleRequest(
+            member_id=extraction_output.member_id,
+            length_mm=float(dims.get("length_mm") or dims.get("cap_length_mm") or 2400.0),
+            width_mm=float(dims.get("width_mm") or dims.get("cap_width_mm") or 2400.0),
+            depth_mm=float(dims.get("depth_mm") or dims.get("cap_depth_mm") or 1000.0),
+            num_piles=int(dims.get("num_piles") or 4),
+            bottom_mesh_dia_mm=float(matched_candidate.get("main_bar_diameter_mm") or 20.0),
+            bottom_mesh_spacing_mm=float(matched_candidate.get("spacing_mm") or 150.0),
+            top_mesh_dia_mm=float(matched_candidate.get("secondary_bar_diameter_mm") or 12.0),
+            top_mesh_spacing_mm=200.0,
+            clear_cover_mm=float(dims.get("clear_cover_mm") or 50.0),
+            concrete_grade=grade_c,
+            steel_grade=grade_s,
+            source_references=citations,
+        )
+        extraction_output.missing_fields = []
+        extraction_output.confidence = 1.0
+
+    elif mtype == "staircase":
+        extraction_output.staircase_request = StaircaseScheduleRequest(
+            member_id=extraction_output.member_id,
+            flight_width_mm=float(dims.get("flight_width_mm") or dims.get("width_mm") or 1200.0),
+            waist_slab_thickness_mm=float(dims.get("waist_slab_thickness_mm") or dims.get("depth_mm") or 150.0),
+            riser_mm=float(dims.get("riser_mm") or dims.get("riser_height_mm") or 150.0),
+            tread_mm=float(dims.get("tread_mm") or dims.get("tread_width_mm") or 250.0),
+            num_risers=int(dims.get("num_risers") or 10),
+            num_treads=int(dims.get("num_treads") or 9),
+            main_bar_dia_mm=float(matched_candidate.get("main_bar_diameter_mm") or 12.0),
+            main_bar_spacing_mm=float(matched_candidate.get("spacing_mm") or 150.0),
+            dist_bar_dia_mm=float(matched_candidate.get("secondary_bar_diameter_mm") or 8.0),
+            dist_bar_spacing_mm=175.0,
+            clear_cover_mm=float(dims.get("clear_cover_mm") or 20.0),
+            concrete_grade=grade_c,
+            steel_grade=grade_s,
+            source_references=citations,
+        )
+        extraction_output.missing_fields = []
+        extraction_output.confidence = 1.0
+
+    elif mtype == "pier":
+        extraction_output.pier_request = PierScheduleRequest(
+            member_id=extraction_output.member_id,
+            shape=str(dims.get("shape") or "rectangular"),
+            dimension_1_mm=float(dims.get("dimension_1_mm") or dims.get("width_mm") or 800.0),
+            dimension_2_mm=float(dims.get("dimension_2_mm") or dims.get("depth_mm") or 800.0),
+            height_mm=float(dims.get("height_mm") or dims.get("storey_height_mm") or 3000.0),
+            main_bar_dia_mm=float(matched_candidate.get("main_bar_diameter_mm") or 25.0),
+            num_main_bars=int(matched_candidate.get("num_bars") or dims.get("num_bars") or 12),
+            tie_bar_dia_mm=float(matched_candidate.get("secondary_bar_diameter_mm") or 10.0),
+            tie_spacing_mm=float(matched_candidate.get("spacing_mm") or 150.0),
+            clear_cover_mm=float(dims.get("clear_cover_mm") or 40.0),
+            concrete_grade=grade_c,
+            steel_grade=grade_s,
+            source_references=citations,
+        )
+        extraction_output.missing_fields = []
+        extraction_output.confidence = 1.0
+
+    elif mtype == "retaining_wall":
+        extraction_output.retaining_wall_request = RetainingWallScheduleRequest(
+            member_id=extraction_output.member_id,
+            wall_length_m=float(dims.get("wall_length_m") or 10.0),
+            stem_height_mm=float(dims.get("stem_height_mm") or dims.get("height_mm") or 3500.0),
+            base_slab_width_mm=float(dims.get("base_slab_width_mm") or dims.get("width_mm") or 2400.0),
+            base_slab_thickness_mm=float(dims.get("base_slab_thickness_mm") or 400.0),
+            stem_base_thickness_mm=float(dims.get("stem_base_thickness_mm") or dims.get("depth_mm") or 400.0),
+            toe_projection_mm=float(dims.get("toe_projection_mm") or 600.0),
+            main_bar_dia_mm=float(matched_candidate.get("main_bar_diameter_mm") or 16.0),
+            main_bar_spacing_mm=float(matched_candidate.get("spacing_mm") or 150.0),
+            dist_bar_dia_mm=float(matched_candidate.get("secondary_bar_diameter_mm") or 10.0),
+            dist_bar_spacing_mm=200.0,
+            clear_cover_mm=float(dims.get("clear_cover_mm") or 50.0),
+            concrete_grade=grade_c,
+            steel_grade=grade_s,
+            source_references=citations,
+        )
+        extraction_output.missing_fields = []
+        extraction_output.confidence = 1.0
 
 
 def orchestrate_drawing_question(
@@ -120,47 +371,11 @@ def orchestrate_drawing_question(
 
     # Step 2b: Overlay verified dimensions from matched candidate member if present
     if matched_candidate:
-        extraction_output.member_id = matched_candidate.get("member_id", target_entity or "MEMBER")
-        extraction_output.member_type = matched_candidate.get("member_type", parsed.member_type or "column").lower()
-        dims = matched_candidate.get("dimensions", {})
-        mtype = extraction_output.member_type
-
-        if mtype == "column":
-            col_w = float(dims.get("width_mm") or 300.0)
-            col_d = float(dims.get("depth_mm") or 450.0)
-            storey_h = float(dims.get("storey_height_mm") or dims.get("height_mm") or 3000.0)
-            main_dia = float(matched_candidate.get("main_bar_diameter_mm") or 16.0)
-            n_bars = int(matched_candidate.get("num_bars") or 8)
-            sec_dia = float(matched_candidate.get("secondary_bar_diameter_mm") or 8.0)
-            grade_c = matched_candidate.get("concrete_grade") or "M25"
-            grade_s = matched_candidate.get("steel_grade") or "FE500"
-            tie_end = float(dims.get("tie_spacing_end_mm")) if dims.get("tie_spacing_end_mm") else None
-            end_len = float(dims.get("end_zone_length_mm")) if dims.get("end_zone_length_mm") else None
-            tie_mid = float(dims.get("tie_spacing_mid_mm")) if dims.get("tie_spacing_mid_mm") else None
-
-            from app.engineering.models import ColumnBarRequest
-            extraction_output.column_request = ColumnBarRequest(
-                member_id=extraction_output.member_id,
-                bar_diameter_mm=main_dia,
-                num_bars=n_bars,
-                storey_height_mm=storey_h,
-                column_width_mm=col_w,
-                column_depth_mm=col_d,
-                footing_embedment_mm=float(dims.get("footing_embedment_mm") or 0.0),
-                bend_allowance_mm=float(dims.get("bend_allowance_mm") or 300.0),
-                tie_bar_dia_mm=sec_dia,
-                tie_spacing_mm=float(dims.get("spacing_mm") or 150.0),
-                tie_spacing_end_mm=tie_end,
-                end_zone_length_mm=end_len,
-                tie_spacing_mid_mm=tie_mid,
-                concrete_grade=grade_c,
-                steel_grade=grade_s,
-                source_references=matched_candidate.get("citations") or [f"drawing:{extraction_output.member_id}"],
-                use_is_code_rules=True,
-                deduct_bends=True,
-            )
-            extraction_output.missing_fields = []
-            extraction_output.confidence = 1.0
+        overlay_candidate_member_dimensions(
+            extraction_output=extraction_output,
+            matched_candidate=matched_candidate,
+            fallback_type=parsed.member_type,
+        )
 
     if extraction_output.missing_fields:
         warnings.append(
@@ -191,8 +406,16 @@ def orchestrate_drawing_question(
                 calc_result = calculate_pier_bbs(extraction_output.pier_request)
             elif mtype == "retaining_wall" and extraction_output.retaining_wall_request:
                 calc_result = calculate_retaining_wall_bbs(extraction_output.retaining_wall_request)
-            elif mtype == "beam" and extraction_output.beam_request:
-                calc_result = calculate_beam_bar_length(extraction_output.beam_request).to_bbs_result()
+            elif mtype == "beam":
+                if extraction_output.beam_schedule_request:
+                    calc_result = calculate_beam_bbs(extraction_output.beam_schedule_request)
+                elif extraction_output.beam_request:
+                    calc_result = calculate_beam_bar_length(extraction_output.beam_request).to_bbs_result(
+                        bar_diameter_mm=extraction_output.beam_request.bar_diameter_mm,
+                        beam_width_mm=extraction_output.beam_request.beam_width_mm,
+                        beam_depth_mm=extraction_output.beam_request.beam_depth_mm,
+                        clear_span_mm=extraction_output.beam_request.clear_span_mm,
+                    )
             elif mtype in ("footing", "raft") and extraction_output.footing_request:
                 foot_dia = extraction_output.footing_request.bar_diameter_mm
                 calc_result = calculate_footing_mesh(extraction_output.footing_request).to_bbs_result(bar_diameter_mm=foot_dia)

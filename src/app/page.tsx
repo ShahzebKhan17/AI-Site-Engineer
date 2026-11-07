@@ -21,6 +21,13 @@ type ExtractedMemberData = {
   main_bar_diameter_mm: number | null;
   secondary_bar_diameter_mm: number | null;
   spacing_mm: number | null;
+  bottom_bars_count?: number | null;
+  bottom_bar_dia_mm?: number | null;
+  top_bars_count?: number | null;
+  top_bar_dia_mm?: number | null;
+  stirrup_dia_mm?: number | null;
+  stirrup_spacing_mm?: number | null;
+  clear_cover_mm?: number | null;
   concrete_grade: string;
   steel_grade: string;
   reinforcement_summary: string;
@@ -1555,152 +1562,252 @@ export default function Home() {
                     />
                   </div>
                   <div>
-                    <label className="text-slate-400 block mb-1 text-[11px]">Height/Span (mm)</label>
+                    <label className="text-slate-400 block mb-1 text-[11px]">
+                      {reviewMember.member_type.toLowerCase() === "beam" ? "Clear Span (mm)" : "Height/Span (mm)"}
+                    </label>
                     <input
                       type="number"
-                      value={reviewMember.dimensions.storey_height_mm || reviewMember.dimensions.length_mm || ""}
+                      value={
+                        reviewMember.dimensions.clear_span_mm ||
+                        reviewMember.dimensions.storey_height_mm ||
+                        reviewMember.dimensions.length_mm ||
+                        ""
+                      }
                       onChange={(e) => {
                         const val = parseFloat(e.target.value) || 0;
                         setReviewMember({
                           ...reviewMember,
                           dimensions: {
                             ...reviewMember.dimensions,
+                            clear_span_mm: val,
                             storey_height_mm: val,
                             length_mm: val,
                           },
                         });
                       }}
-                      className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white"
-                      placeholder="e.g. 3200"
+                      className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-bold"
+                      placeholder={reviewMember.member_type.toLowerCase() === "beam" ? "e.g. 4000" : "e.g. 3200"}
                     />
                   </div>
                 </div>
               </div>
 
               {/* Reinforcement */}
-              <div className="bg-slate-950/70 p-3 rounded-lg border border-slate-800 space-y-2">
-                <span className="text-[11px] font-bold text-slate-300 block uppercase tracking-wider">
+              <div className="bg-slate-950/70 p-3 rounded-lg border border-slate-800 space-y-3">
+                <span className="text-[11px] font-bold text-cyan-400 block uppercase tracking-wider">
                   Reinforcement Schedule (IS 456 &amp; SP 34)
                 </span>
-                <div className="grid grid-cols-4 gap-2">
-                  <div>
-                    <label className="text-slate-400 block mb-1 text-[11px]">No. of Bars</label>
-                    <input
-                      type="number"
-                      value={reviewMember.num_bars || reviewMember.dimensions?.num_bars || ""}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value) || 0;
-                        setReviewMember({
-                          ...reviewMember,
-                          num_bars: val,
-                          dimensions: { ...reviewMember.dimensions, num_bars: val },
-                        });
-                      }}
-                      className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-bold"
-                      placeholder="e.g. 8"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-slate-400 block mb-1 text-[11px]">Main Bar Dia (mm)</label>
-                    <input
-                      type="number"
-                      value={reviewMember.main_bar_diameter_mm || ""}
-                      onChange={(e) =>
-                        setReviewMember({
-                          ...reviewMember,
-                          main_bar_diameter_mm: parseFloat(e.target.value) || 0,
-                        })
-                      }
-                      className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-bold"
-                      placeholder="e.g. 16"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-slate-400 block mb-1 text-[11px]">Secondary/Tie (mm)</label>
-                    <input
-                      type="number"
-                      value={reviewMember.secondary_bar_diameter_mm || ""}
-                      onChange={(e) =>
-                        setReviewMember({
-                          ...reviewMember,
-                          secondary_bar_diameter_mm: parseFloat(e.target.value) || 0,
-                        })
-                      }
-                      className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white"
-                      placeholder="e.g. 8"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-slate-400 block mb-1 text-[11px]">Spacing (mm)</label>
-                    <input
-                      type="number"
-                      value={reviewMember.spacing_mm || ""}
-                      onChange={(e) =>
-                        setReviewMember({
-                          ...reviewMember,
-                          spacing_mm: parseFloat(e.target.value) || 0,
-                        })
-                      }
-                      className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white"
-                      placeholder="e.g. 150"
-                    />
-                  </div>
-                </div>
 
-                {reviewMember.member_type.toLowerCase() === "column" && (
-                  <div className="pt-2 border-t border-slate-800/80">
-                    <span className="text-[10px] text-cyan-400 font-bold block mb-1">
-                      DUAL-ZONE LATERAL TIE DETAILING (OPTIONAL / SEISMIC)
-                    </span>
-                    <div className="grid grid-cols-3 gap-2">
+                {reviewMember.member_type.toLowerCase() === "beam" ? (
+                  <div className="space-y-3">
+                    {/* Bottom Longitudinal Reinforcement (Tension Bars) */}
+                    <div className="bg-slate-900/60 p-2.5 rounded border border-slate-800">
+                      <span className="text-[10px] text-cyan-300 font-bold block mb-1.5 uppercase">
+                        Bottom Longitudinal Reinforcement (Tension Bars)
+                      </span>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-slate-400 block mb-1 text-[10px]">Bottom Bars Count</label>
+                          <input
+                            type="number"
+                            value={reviewMember.bottom_bars_count ?? reviewMember.dimensions?.bottom_bars_count ?? 3}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value) || 0;
+                              setReviewMember({
+                                ...reviewMember,
+                                bottom_bars_count: val,
+                                dimensions: { ...reviewMember.dimensions, bottom_bars_count: val },
+                              });
+                            }}
+                            className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-bold text-xs"
+                            placeholder="e.g. 3"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-slate-400 block mb-1 text-[10px]">Bottom Bar Dia (mm)</label>
+                          <input
+                            type="number"
+                            value={reviewMember.bottom_bar_dia_mm ?? reviewMember.dimensions?.bottom_bar_dia_mm ?? reviewMember.main_bar_diameter_mm ?? 16}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              setReviewMember({
+                                ...reviewMember,
+                                bottom_bar_dia_mm: val,
+                                main_bar_diameter_mm: val,
+                                dimensions: { ...reviewMember.dimensions, bottom_bar_dia_mm: val },
+                              });
+                            }}
+                            className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-bold text-xs"
+                            placeholder="e.g. 16"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Top Longitudinal Reinforcement (Hanger / Compression Bars) */}
+                    <div className="bg-slate-900/60 p-2.5 rounded border border-slate-800">
+                      <span className="text-[10px] text-cyan-300 font-bold block mb-1.5 uppercase">
+                        Top Longitudinal Reinforcement (Hanger / Compression Bars)
+                      </span>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-slate-400 block mb-1 text-[10px]">Top Bars Count</label>
+                          <input
+                            type="number"
+                            value={reviewMember.top_bars_count ?? reviewMember.dimensions?.top_bars_count ?? 2}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value) || 0;
+                              setReviewMember({
+                                ...reviewMember,
+                                top_bars_count: val,
+                                dimensions: { ...reviewMember.dimensions, top_bars_count: val },
+                              });
+                            }}
+                            className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-bold text-xs"
+                            placeholder="e.g. 2"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-slate-400 block mb-1 text-[10px]">Top Bar Dia (mm)</label>
+                          <input
+                            type="number"
+                            value={reviewMember.top_bar_dia_mm ?? reviewMember.dimensions?.top_bar_dia_mm ?? 12}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              setReviewMember({
+                                ...reviewMember,
+                                top_bar_dia_mm: val,
+                                dimensions: { ...reviewMember.dimensions, top_bar_dia_mm: val },
+                              });
+                            }}
+                            className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-bold text-xs"
+                            placeholder="e.g. 12"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Transverse Shear Stirrups (Links) */}
+                    <div className="bg-slate-900/60 p-2.5 rounded border border-slate-800">
+                      <span className="text-[10px] text-cyan-300 font-bold block mb-1.5 uppercase">
+                        Transverse Shear Stirrups (Links &amp; Ties)
+                      </span>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <label className="text-slate-400 block mb-1 text-[10px]">Stirrup Dia (mm)</label>
+                          <input
+                            type="number"
+                            value={reviewMember.stirrup_dia_mm ?? reviewMember.dimensions?.stirrup_dia_mm ?? reviewMember.secondary_bar_diameter_mm ?? 8}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              setReviewMember({
+                                ...reviewMember,
+                                stirrup_dia_mm: val,
+                                secondary_bar_diameter_mm: val,
+                                dimensions: { ...reviewMember.dimensions, stirrup_dia_mm: val },
+                              });
+                            }}
+                            className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs"
+                            placeholder="e.g. 8"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-slate-400 block mb-1 text-[10px]">Spacing c/c (mm)</label>
+                          <input
+                            type="number"
+                            value={reviewMember.stirrup_spacing_mm ?? reviewMember.dimensions?.stirrup_spacing_mm ?? reviewMember.spacing_mm ?? 150}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              setReviewMember({
+                                ...reviewMember,
+                                stirrup_spacing_mm: val,
+                                spacing_mm: val,
+                                dimensions: { ...reviewMember.dimensions, stirrup_spacing_mm: val, spacing_mm: val },
+                              });
+                            }}
+                            className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs"
+                            placeholder="e.g. 150"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-slate-400 block mb-1 text-[10px]">Clear Cover (mm)</label>
+                          <input
+                            type="number"
+                            value={reviewMember.clear_cover_mm ?? reviewMember.dimensions?.clear_cover_mm ?? 25}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              setReviewMember({
+                                ...reviewMember,
+                                clear_cover_mm: val,
+                                dimensions: { ...reviewMember.dimensions, clear_cover_mm: val },
+                              });
+                            }}
+                            className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs"
+                            placeholder="e.g. 25"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-4 gap-2">
                       <div>
-                        <label className="text-slate-400 block mb-1 text-[10px]">End Zone Spacing (mm)</label>
+                        <label className="text-slate-400 block mb-1 text-[11px]">No. of Bars</label>
                         <input
                           type="number"
-                          value={reviewMember.dimensions?.tie_spacing_end_mm || ""}
-                          onChange={(e) =>
+                          value={reviewMember.num_bars || reviewMember.dimensions?.num_bars || ""}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value) || 0;
                             setReviewMember({
                               ...reviewMember,
-                              dimensions: {
-                                ...reviewMember.dimensions,
-                                tie_spacing_end_mm: parseFloat(e.target.value) || 0,
-                              },
-                            })
-                          }
-                          className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white"
-                          placeholder="e.g. 100"
+                              num_bars: val,
+                              dimensions: { ...reviewMember.dimensions, num_bars: val },
+                            });
+                          }}
+                          className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-bold"
+                          placeholder="e.g. 8"
                         />
                       </div>
                       <div>
-                        <label className="text-slate-400 block mb-1 text-[10px]">End Zone Length (mm)</label>
+                        <label className="text-slate-400 block mb-1 text-[11px]">Main Bar Dia (mm)</label>
                         <input
                           type="number"
-                          value={reviewMember.dimensions?.end_zone_length_mm || ""}
+                          value={reviewMember.main_bar_diameter_mm || ""}
                           onChange={(e) =>
                             setReviewMember({
                               ...reviewMember,
-                              dimensions: {
-                                ...reviewMember.dimensions,
-                                end_zone_length_mm: parseFloat(e.target.value) || 0,
-                              },
+                              main_bar_diameter_mm: parseFloat(e.target.value) || 0,
                             })
                           }
-                          className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white"
-                          placeholder="e.g. 300"
+                          className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-bold"
+                          placeholder="e.g. 16"
                         />
                       </div>
                       <div>
-                        <label className="text-slate-400 block mb-1 text-[10px]">Mid Zone Spacing (mm)</label>
+                        <label className="text-slate-400 block mb-1 text-[11px]">Secondary/Tie (mm)</label>
                         <input
                           type="number"
-                          value={reviewMember.dimensions?.tie_spacing_mid_mm || reviewMember.spacing_mm || ""}
+                          value={reviewMember.secondary_bar_diameter_mm || ""}
                           onChange={(e) =>
                             setReviewMember({
                               ...reviewMember,
-                              dimensions: {
-                                ...reviewMember.dimensions,
-                                tie_spacing_mid_mm: parseFloat(e.target.value) || 0,
-                              },
+                              secondary_bar_diameter_mm: parseFloat(e.target.value) || 0,
+                            })
+                          }
+                          className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white"
+                          placeholder="e.g. 8"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-slate-400 block mb-1 text-[11px]">Spacing (mm)</label>
+                        <input
+                          type="number"
+                          value={reviewMember.spacing_mm || ""}
+                          onChange={(e) =>
+                            setReviewMember({
+                              ...reviewMember,
+                              spacing_mm: parseFloat(e.target.value) || 0,
                             })
                           }
                           className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white"
@@ -1708,7 +1815,71 @@ export default function Home() {
                         />
                       </div>
                     </div>
-                  </div>
+
+                    {reviewMember.member_type.toLowerCase() === "column" && (
+                      <div className="pt-2 border-t border-slate-800/80">
+                        <span className="text-[10px] text-cyan-400 font-bold block mb-1">
+                          DUAL-ZONE LATERAL TIE DETAILING (OPTIONAL / SEISMIC)
+                        </span>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div>
+                            <label className="text-slate-400 block mb-1 text-[10px]">End Zone Spacing (mm)</label>
+                            <input
+                              type="number"
+                              value={reviewMember.dimensions?.tie_spacing_end_mm || ""}
+                              onChange={(e) =>
+                                setReviewMember({
+                                  ...reviewMember,
+                                  dimensions: {
+                                    ...reviewMember.dimensions,
+                                    tie_spacing_end_mm: parseFloat(e.target.value) || 0,
+                                  },
+                                })
+                              }
+                              className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white"
+                              placeholder="e.g. 100"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-slate-400 block mb-1 text-[10px]">End Zone Length (mm)</label>
+                            <input
+                              type="number"
+                              value={reviewMember.dimensions?.end_zone_length_mm || ""}
+                              onChange={(e) =>
+                                setReviewMember({
+                                  ...reviewMember,
+                                  dimensions: {
+                                    ...reviewMember.dimensions,
+                                    end_zone_length_mm: parseFloat(e.target.value) || 0,
+                                  },
+                                })
+                              }
+                              className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white"
+                              placeholder="e.g. 300"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-slate-400 block mb-1 text-[10px]">Mid Zone Spacing (mm)</label>
+                            <input
+                              type="number"
+                              value={reviewMember.dimensions?.tie_spacing_mid_mm || reviewMember.spacing_mm || ""}
+                              onChange={(e) =>
+                                setReviewMember({
+                                  ...reviewMember,
+                                  dimensions: {
+                                    ...reviewMember.dimensions,
+                                    tie_spacing_mid_mm: parseFloat(e.target.value) || 0,
+                                  },
+                                })
+                              }
+                              className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white"
+                              placeholder="e.g. 150"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
 

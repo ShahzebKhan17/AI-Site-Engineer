@@ -239,11 +239,36 @@ def synthesize_engineering_answer(
         try:
             import httpx
             context = "\n---\n".join([f"[{c.source_reference}]: {c.content}" for c in chunks[:5]])
+            candidate_specs = []
+            if extraction.member_id:
+                candidate_specs.append(f"Member ID: {extraction.member_id} ({extraction.member_type})")
+            if extraction.beam_schedule_request:
+                bs = extraction.beam_schedule_request
+                candidate_specs.append(
+                    f"Beam Geometry: {bs.beam_width_mm:.0f} mm width x {bs.beam_depth_mm:.0f} mm overall depth x {bs.clear_span_mm:.0f} mm clear span, nominal cover {bs.clear_cover_mm:.0f} mm"
+                )
+                candidate_specs.append(
+                    f"Beam Reinforcement: Bottom {bs.bottom_bars_count}-T{bs.bottom_bar_dia_mm:.0f}, Top {bs.top_bars_count}-T{bs.top_bar_dia_mm:.0f}, Stirrups T{bs.stirrup_dia_mm:.0f} @ {bs.stirrup_spacing_mm:.0f} mm c/c"
+                )
+            elif extraction.beam_request:
+                br = extraction.beam_request
+                candidate_specs.append(
+                    f"Beam Geometry: {br.beam_width_mm or 230:.0f} mm width x {br.beam_depth_mm or 450:.0f} mm overall depth x {br.clear_span_mm:.0f} mm clear span"
+                )
+            elif extraction.column_request:
+                cr = extraction.column_request
+                candidate_specs.append(
+                    f"Column Geometry: {cr.column_width_mm or 300:.0f} mm width x {cr.column_depth_mm or 450:.0f} mm depth x {cr.storey_height_mm:.0f} mm storey height"
+                )
+            specs_str = "\n".join(candidate_specs)
+            specs_context = f"\n\nVerified Member Specifications:\n{specs_str}" if specs_str else ""
+
             prompt = (
                 "You are a Senior Civil & Structural Site Engineer assistant. "
-                "Answer the user's question directly, factually, and concisely based strictly on the following structural drawing evidence. "
+                "Answer the user's question directly, factually, and concisely based strictly on the following structural drawing evidence and verified specifications. "
+                "If asked about concrete volume or materials, compute the gross rectangular volume using the provided member dimensions and state the concrete volume and material breakdown clearly. "
                 "If asked about reinforcement or bar diameters, state the exact diameter in mm, bar numbers, and tie/stirrup spacing clearly.\n\n"
-                f"Drawing Evidence:\n{context}\n\n"
+                f"Drawing Evidence:\n{context}{specs_context}\n\n"
                 f"Question: {question}\n\n"
                 "Engineering Response:"
             )

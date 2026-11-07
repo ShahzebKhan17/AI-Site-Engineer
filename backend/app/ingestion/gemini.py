@@ -274,6 +274,53 @@ def _parse_gemini_json_response(raw_text: str, file_name: str) -> ExtractionResu
         spacing = float(m["spacing_mm"]) if m.get("spacing_mm") is not None else None
         conf = float(m.get("confidence", 0.95))
 
+        # Beam specific parameter inference from summary or dimensions
+        b_count_val = m.get("bottom_bars_count")
+        b_dia_val = m.get("bottom_bar_dia_mm")
+        t_count_val = m.get("top_bars_count")
+        t_dia_val = m.get("top_bar_dia_mm")
+        stir_dia_val = m.get("stirrup_dia_mm")
+        stir_sp_val = m.get("stirrup_spacing_mm")
+        cover_val = m.get("clear_cover_mm") or dims.get("clear_cover_mm") or dims.get("cover_mm")
+
+        comb_reinf = f"{reinf_str} {' '.join(str(n) for n in m.get('notes', []))}"
+        if mtype == "beam" or "bottom" in comb_reinf.lower() or "stirrup" in comb_reinf.lower():
+            bot_match = re.search(r"bottom.*?(\d+)\s*bars?.*?(\d+)\s*mm", comb_reinf, re.IGNORECASE)
+            top_match = re.search(r"top.*?(\d+)\s*bars?.*?(\d+)\s*mm", comb_reinf, re.IGNORECASE)
+            stir_match = re.search(r"stirrups?.*?(\d+)\s*mm.*?(\d+)\s*mm\s*c/?c", comb_reinf, re.IGNORECASE) or re.search(r"stirrups?.*?(\d+)\s*mm.*?@\s*(\d+)", comb_reinf, re.IGNORECASE)
+            cov_match = re.search(r"(?:clear\s*)?cover.*?(\d+)\s*mm", comb_reinf, re.IGNORECASE)
+
+            if b_count_val is None and bot_match:
+                b_count_val = int(bot_match.group(1))
+            if b_dia_val is None and bot_match:
+                b_dia_val = float(bot_match.group(2))
+            if t_count_val is None and top_match:
+                t_count_val = int(top_match.group(1))
+            if t_dia_val is None and top_match:
+                t_dia_val = float(top_match.group(2))
+            if stir_dia_val is None and stir_match:
+                stir_dia_val = float(stir_match.group(1))
+            if stir_sp_val is None and stir_match:
+                stir_sp_val = float(stir_match.group(2))
+            if cover_val is None and cov_match:
+                cover_val = float(cov_match.group(1))
+
+            # Store in dimensions dictionary for easy serialization
+            if b_count_val is not None:
+                dims["bottom_bars_count"] = float(b_count_val)
+            if b_dia_val is not None:
+                dims["bottom_bar_dia_mm"] = float(b_dia_val)
+            if t_count_val is not None:
+                dims["top_bars_count"] = float(t_count_val)
+            if t_dia_val is not None:
+                dims["top_bar_dia_mm"] = float(t_dia_val)
+            if stir_dia_val is not None:
+                dims["stirrup_dia_mm"] = float(stir_dia_val)
+            if stir_sp_val is not None:
+                dims["stirrup_spacing_mm"] = float(stir_sp_val)
+            if cover_val is not None:
+                dims["clear_cover_mm"] = float(cover_val)
+
         members.append(
             ExtractedMember(
                 member_id=mid,
@@ -283,6 +330,13 @@ def _parse_gemini_json_response(raw_text: str, file_name: str) -> ExtractionResu
                 main_bar_diameter_mm=main_dia,
                 secondary_bar_diameter_mm=sec_dia,
                 spacing_mm=spacing,
+                bottom_bars_count=int(b_count_val) if b_count_val is not None else None,
+                bottom_bar_dia_mm=float(b_dia_val) if b_dia_val is not None else None,
+                top_bars_count=int(t_count_val) if t_count_val is not None else None,
+                top_bar_dia_mm=float(t_dia_val) if t_dia_val is not None else None,
+                stirrup_dia_mm=float(stir_dia_val) if stir_dia_val is not None else None,
+                stirrup_spacing_mm=float(stir_sp_val) if stir_sp_val is not None else None,
+                clear_cover_mm=float(cover_val) if cover_val is not None else None,
                 concrete_grade=str(m.get("concrete_grade", "M25")).upper(),
                 steel_grade=str(m.get("steel_grade", "FE500")).upper(),
                 reinforcement_summary=reinf_str,

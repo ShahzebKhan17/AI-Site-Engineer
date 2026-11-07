@@ -56,3 +56,68 @@ def test_calculate_beam_top_curtailed_extra_bar() -> None:
     assert res.cutting_length_mm == 1670.0
     assert res.cutting_length_m == 1.670
     assert any("0.25 * L" in b.label for b in res.breakdown)
+
+
+def test_calculate_beam_complete_bbs_schedule() -> None:
+    from app.engineering.calculators.beam import BeamScheduleRequest, calculate_beam_bbs
+
+    req = BeamScheduleRequest(
+        member_id="BM-01",
+        clear_span_mm=4000.0,
+        beam_width_mm=230.0,
+        beam_depth_mm=450.0,
+        left_support_width_mm=300.0,
+        right_support_width_mm=300.0,
+        clear_cover_mm=25.0,
+        bottom_bars_count=3,
+        bottom_bar_dia_mm=16.0,
+        top_bars_count=2,
+        top_bar_dia_mm=12.0,
+        stirrup_dia_mm=8.0,
+        stirrup_spacing_mm=150.0,
+        concrete_grade="M25",
+        steel_grade="FE500",
+    )
+
+    res = calculate_beam_bbs(req)
+
+    assert res.member_id == "BM-01"
+    assert res.member_type == "BEAM"
+    assert len(res.items) == 3
+
+    # Item 1: Bottom bars (3-T16)
+    bot = res.items[0]
+    assert bot.bar_mark == "Bottom Longitudinal Bars"
+    assert bot.bar_diameter_mm == 16.0
+    assert bot.num_bars == 3
+    # 4000 + 452 + 452 - 64 = 4840.0 mm
+    assert bot.cutting_length_mm == 4840.0
+    assert bot.total_weight_kg == 22.94
+
+    # Item 2: Top bars (2-T12)
+    top = res.items[1]
+    assert top.bar_mark == "Top Longitudinal Hanger Bars"
+    assert top.bar_diameter_mm == 12.0
+    assert top.num_bars == 2
+    # 4000 + 404 + 404 - 48 = 4760.0 mm
+    assert top.cutting_length_mm == 4760.0
+    assert top.total_weight_kg == 8.46
+
+    # Item 3: Stirrups (T8 @ 150 c/c)
+    st = res.items[2]
+    assert st.bar_mark == "Shear Stirrups / Links"
+    assert st.bar_diameter_mm == 8.0
+    # floor(4000 / 150) + 1 = 26 + 1 = 27
+    assert st.num_bars == 27
+    # (180*2 + 400*2) + 160 - 96 = 1160 + 64 = 1224.0 mm
+    assert st.cutting_length_mm == 1224.0
+    assert st.total_weight_kg == 13.05
+
+    # Total steel weight
+    assert res.total_weight_kg == round(22.94 + 8.46 + 13.05, 2)
+
+    # Concrete volume
+    # 0.23 * 0.45 * 4.0 = 0.414 m3
+    assert res.concrete_volume_m3 == 0.414
+    assert res.cement_bags is not None and res.cement_bags > 0
+

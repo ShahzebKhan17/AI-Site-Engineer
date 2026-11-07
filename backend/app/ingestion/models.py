@@ -19,6 +19,13 @@ class ExtractedMember(BaseModel):
     main_bar_diameter_mm: float | None = None
     secondary_bar_diameter_mm: float | None = None
     spacing_mm: float | None = None
+    bottom_bars_count: int | None = None
+    bottom_bar_dia_mm: float | None = None
+    top_bars_count: int | None = None
+    top_bar_dia_mm: float | None = None
+    stirrup_dia_mm: float | None = None
+    stirrup_spacing_mm: float | None = None
+    clear_cover_mm: float | None = None
     concrete_grade: str = "M25"
     steel_grade: str = "FE500"
     reinforcement_summary: str = ""

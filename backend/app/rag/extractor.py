@@ -5,7 +5,7 @@ import re
 from typing import Sequence
 from pydantic import BaseModel, Field
 
-from app.engineering.calculators.beam import BeamBarRequest
+from app.engineering.calculators.beam import BeamBarRequest, BeamScheduleRequest
 from app.engineering.calculators.footing import FootingMeshRequest
 from app.engineering.calculators.pier import PierScheduleRequest
 from app.engineering.calculators.pile import PileScheduleRequest
@@ -31,6 +31,7 @@ class ExtractionOutput(BaseModel):
     member_type: str = "column"
     column_request: ColumnBarRequest | None = None
     beam_request: BeamBarRequest | None = None
+    beam_schedule_request: BeamScheduleRequest | None = None
     footing_request: FootingMeshRequest | None = None
     slab_request: SlabScheduleRequest | None = None
     pile_request: PileScheduleRequest | None = None
@@ -186,6 +187,7 @@ def regex_extract_drawing_dimensions(
 
     col_req: ColumnBarRequest | None = None
     beam_req: BeamBarRequest | None = None
+    beam_sched_req: BeamScheduleRequest | None = None
     foot_req: FootingMeshRequest | None = None
     slab_req: SlabScheduleRequest | None = None
     pile_req: PileScheduleRequest | None = None
@@ -541,30 +543,57 @@ def regex_extract_drawing_dimensions(
             )
 
     elif member_type == "beam":
-        span_match = re.search(r"(?:clear\s*)?span\s*(?:is|=|:)?\s*(\d{3,5})\s*mm", text, re.IGNORECASE)
+        span_match = re.search(
+            r"(?:clear\s*)?span\s*(?:used\s*for\s*this\s*example\s*)?(?:is|=|:)?\s*(\d{1,2}(?:,\d{3})+|\d{3,5})\s*mm",
+            text,
+            re.IGNORECASE,
+        )
         dia_match = re.search(r"(?:Y|T|TOR|#|dia|Ø)\s*(8|10|12|16|20|25|28|32)\b", text, re.IGNORECASE)
         if not dia_match:
             dia_match = re.search(r"(?:Y|T|TOR|#|dia|Ø)?\s*(8|10|12|16|20|25|28|32)\b", text, re.IGNORECASE)
 
-        b_dims = re.search(r"(\d{2,4})\s*mm?\s*x\s*(\d{2,4})\s*mm?", text, re.IGNORECASE)
+        # Handle "230 mm wide x 450 mm overall depth" or "230 mm x 450 mm" or "230x450"
+        b_dims = re.search(
+            r"(\d{2,4})\s*mm(?:\s*wide)?\s*[x×]\s*(\d{2,4})\s*mm(?:\s*(?:overall\s*)?depth)?",
+            text,
+            re.IGNORECASE,
+        )
+        if not b_dims:
+            b_dims = re.search(r"(\d{2,4})\s*mm?\s*[x×]\s*(\d{2,4})\s*mm?", text, re.IGNORECASE)
+
         b_w = float(b_dims.group(1)) if b_dims else None
         b_d = float(b_dims.group(2)) if b_dims else None
 
         supp_match = re.search(r"(?:support|column)\s*width\s*(?:is|=|:)?\s*(\d{2,4})\s*mm", text, re.IGNORECASE)
         supp_w = float(supp_match.group(1)) if supp_match else 300.0
 
-        span = float(span_match.group(1)) if span_match else None
-        b_dia = float(dia_match.group(1)) if dia_match else None
+        cov_match = re.search(r"(?:nominal\s*cover|clear\s*cover|cover)\s*(?:is|=|:)?\s*(\d{2,3})\s*mm", text, re.IGNORECASE)
+        clear_cov = float(cov_match.group(1)) if cov_match else 25.0
+
+        # Detailed beam reinforcement extraction
+        bot_match = re.search(r"bottom.*?(\d+)\s*bars?.*?(\d+)\s*mm", text, re.IGNORECASE)
+        top_match = re.search(r"top.*?(\d+)\s*bars?.*?(\d+)\s*mm", text, re.IGNORECASE)
+        stir_match = re.search(r"stirrups?.*?(\d+)\s*mm.*?(\d+)\s*mm\s*c/?c", text, re.IGNORECASE) or re.search(r"stirrups?.*?(\d+)\s*mm.*?@\s*(\d+)", text, re.IGNORECASE)
+
+        span = float(span_match.group(1).replace(",", "")) if span_match else None
+        b_dia = float(dia_match.group(1)) if dia_match else (float(bot_match.group(2)) if bot_match else None)
+
+        bot_count = int(bot_match.group(1)) if bot_match else 3
+        bot_dia = float(bot_match.group(2)) if bot_match else (b_dia or 16.0)
+        top_count = int(top_match.group(1)) if top_match else 2
+        top_dia = float(top_match.group(2)) if top_match else 12.0
+        stir_dia = float(stir_match.group(1)) if stir_match else 8.0
+        stir_pitch = float(stir_match.group(2)) if stir_match else 150.0
 
         if not span:
             missing.append("clear_span_mm")
-        if not b_dia:
+        if not b_dia and not bot_match:
             missing.append("bar_diameter_mm")
 
-        if span and b_dia:
+        if span and (b_dia or bot_match):
             beam_req = BeamBarRequest(
                 member_id=target_member_id,
-                bar_diameter_mm=b_dia,
+                bar_diameter_mm=bot_dia,
                 clear_span_mm=span,
                 beam_width_mm=b_w,
                 beam_depth_mm=b_d,
@@ -574,6 +603,27 @@ def regex_extract_drawing_dimensions(
                 concrete_grade=concrete_grade,
                 steel_grade=steel_grade,
                 source_references=citations_list,
+            )
+            beam_sched_req = BeamScheduleRequest(
+                member_id=target_member_id,
+                clear_span_mm=span,
+                beam_width_mm=b_w or 230.0,
+                beam_depth_mm=b_d or 450.0,
+                left_support_width_mm=supp_w,
+                right_support_width_mm=supp_w,
+                clear_cover_mm=clear_cov,
+                bottom_bars_count=bot_count,
+                bottom_bar_dia_mm=bot_dia,
+                top_bars_count=top_count,
+                top_bar_dia_mm=top_dia,
+                stirrup_dia_mm=stir_dia,
+                stirrup_spacing_mm=stir_pitch,
+                stirrup_legs=2,
+                concrete_grade=concrete_grade,
+                steel_grade=steel_grade,
+                source_references=citations_list,
+                use_is_code_rules=True,
+                deduct_bends=True,
             )
 
     else:
@@ -760,6 +810,7 @@ def regex_extract_drawing_dimensions(
         member_type=member_type,
         column_request=col_req,
         beam_request=beam_req,
+        beam_schedule_request=beam_sched_req,
         footing_request=foot_req,
         slab_request=slab_req,
         pile_request=pile_req,

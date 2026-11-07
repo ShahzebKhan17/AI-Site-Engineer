@@ -2,7 +2,13 @@ from typing import Any
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-from app.engineering.calculators.beam import BeamBarRequest, BeamBarResult, calculate_beam_bar_length
+from app.engineering.calculators.beam import (
+    BeamBarRequest,
+    BeamBarResult,
+    BeamScheduleRequest,
+    calculate_beam_bar_length,
+    calculate_beam_bbs,
+)
 from app.engineering.calculators.column import calculate_longitudinal_bar
 from app.engineering.calculators.footing import FootingMeshRequest, FootingMeshResult, calculate_footing_mesh
 from app.engineering.calculators.pier import PierScheduleRequest, calculate_pier_bbs
@@ -109,6 +115,13 @@ class ParameterCalculationRequest(BaseModel):
     tie_spacing_end_mm: float | None = None
     end_zone_length_mm: float | None = None
     tie_spacing_mid_mm: float | None = None
+    bottom_bars_count: int | None = None
+    bottom_bar_dia_mm: float | None = None
+    top_bars_count: int | None = None
+    top_bar_dia_mm: float | None = None
+    stirrup_dia_mm: float | None = None
+    stirrup_spacing_mm: float | None = None
+    clear_cover_mm: float | None = None
     concrete_grade: str = "M25"
     steel_grade: str = "FE500"
     citations: list[str] = Field(default_factory=list)
@@ -157,44 +170,64 @@ def calculate_from_reviewed_parameters(request: ParameterCalculationRequest) -> 
         return calculate_longitudinal_bar(col_req).to_bbs_result()
 
     if mtype == "beam":
-        beam_req = BeamBarRequest(
+        b_count = request.bottom_bars_count or int(dims.get("bottom_bars_count") or request.num_bars or 3)
+        b_dia = request.bottom_bar_dia_mm or float(dims.get("bottom_bar_dia_mm") or request.main_bar_diameter_mm or 16.0)
+        t_count = request.top_bars_count or int(dims.get("top_bars_count") or 2)
+        t_dia = request.top_bar_dia_mm or float(dims.get("top_bar_dia_mm") or 12.0)
+        s_dia = request.stirrup_dia_mm or float(dims.get("stirrup_dia_mm") or request.secondary_bar_diameter_mm or 8.0)
+        s_pitch = request.stirrup_spacing_mm or float(dims.get("stirrup_spacing_mm") or dims.get("spacing_mm") or request.spacing_mm or 150.0)
+        cov = request.clear_cover_mm or float(dims.get("clear_cover_mm") or dims.get("cover_mm") or 25.0)
+
+        beam_sched_req = BeamScheduleRequest(
             member_id=request.member_id,
-            bar_diameter_mm=request.main_bar_diameter_mm,
-            clear_span_mm=dims.get("length_mm", dims.get("clear_span_mm", 4000.0)),
-            beam_width_mm=dims.get("width_mm", 300.0),
-            beam_depth_mm=dims.get("depth_mm", 500.0),
-            support_width_mm=dims.get("support_width_mm", 300.0),
+            clear_span_mm=float(dims.get("clear_span_mm") or dims.get("length_mm") or dims.get("storey_height_mm") or dims.get("height_mm") or 4000.0),
+            beam_width_mm=float(dims.get("width_mm") or dims.get("beam_width_mm") or 230.0),
+            beam_depth_mm=float(dims.get("depth_mm") or dims.get("beam_depth_mm") or 450.0),
+            left_support_width_mm=float(dims.get("support_width_mm") or dims.get("left_support_width_mm") or 300.0),
+            right_support_width_mm=float(dims.get("support_width_mm") or dims.get("right_support_width_mm") or 300.0),
+            clear_cover_mm=cov,
+            bottom_bars_count=b_count,
+            bottom_bar_dia_mm=b_dia,
+            top_bars_count=t_count,
+            top_bar_dia_mm=t_dia,
+            stirrup_dia_mm=s_dia,
+            stirrup_spacing_mm=s_pitch,
+            stirrup_legs=int(dims.get("stirrup_legs") or 2),
             concrete_grade=request.concrete_grade,
             steel_grade=request.steel_grade,
             source_references=citations,
             deduct_bends=True,
+            use_is_code_rules=True,
         )
-        return calculate_beam_bar_length(beam_req)
+        return calculate_beam_bbs(beam_sched_req)
 
     if mtype in ("footing", "raft"):
         foot_req = FootingMeshRequest(
             member_id=request.member_id,
             bar_diameter_mm=request.main_bar_diameter_mm,
-            footing_length_mm=dims.get("length_mm", dims.get("footing_length_mm", 2000.0)),
-            footing_width_mm=dims.get("width_mm", dims.get("footing_width_mm", 2000.0)),
-            footing_depth_mm=dims.get("depth_mm", dims.get("footing_depth_mm", 500.0)),
+            length_mm=float(dims.get("length_mm") or dims.get("footing_length_mm") or 2000.0),
+            width_mm=float(dims.get("width_mm") or dims.get("footing_width_mm") or 2000.0),
+            depth_mm=float(dims.get("depth_mm") or dims.get("footing_depth_mm") or 500.0),
             spacing_mm=request.spacing_mm or 150.0,
+            clear_cover_mm=float(dims.get("clear_cover_mm") or 50.0),
             concrete_grade=request.concrete_grade,
             steel_grade=request.steel_grade,
             source_references=citations,
         )
-        return calculate_footing_mesh(foot_req)
+        return calculate_footing_mesh(foot_req).to_bbs_result(bar_diameter_mm=foot_req.bar_diameter_mm)
 
     if mtype == "slab":
         slab_req = SlabScheduleRequest(
             member_id=request.member_id,
-            short_span_mm=dims.get("width_mm", dims.get("short_span_mm", 3500.0)),
-            long_span_mm=dims.get("length_mm", dims.get("long_span_mm", 5000.0)),
-            slab_thickness_mm=dims.get("depth_mm", dims.get("slab_thickness_mm", 150.0)),
+            width_lx_mm=float(dims.get("width_lx_mm") or dims.get("width_mm") or 3500.0),
+            length_ly_mm=float(dims.get("length_ly_mm") or dims.get("length_mm") or 5000.0),
+            thickness_mm=float(dims.get("thickness_mm") or dims.get("depth_mm") or 150.0),
+            support_width_mm=float(dims.get("support_width_mm") or 230.0),
             main_bar_dia_mm=request.main_bar_diameter_mm,
             main_bar_spacing_mm=request.spacing_mm or 150.0,
-            distribution_bar_dia_mm=request.secondary_bar_diameter_mm or 8.0,
-            distribution_bar_spacing_mm=dims.get("distribution_spacing_mm", 200.0),
+            dist_bar_dia_mm=request.secondary_bar_diameter_mm or 8.0,
+            dist_bar_spacing_mm=float(dims.get("dist_bar_spacing_mm") or 175.0),
+            clear_cover_mm=float(dims.get("clear_cover_mm") or 20.0),
             concrete_grade=request.concrete_grade,
             steel_grade=request.steel_grade,
             source_references=citations,
@@ -204,12 +237,14 @@ def calculate_from_reviewed_parameters(request: ParameterCalculationRequest) -> 
     if mtype == "pile":
         pile_req = PileScheduleRequest(
             member_id=request.member_id,
-            pile_diameter_mm=dims.get("width_mm", dims.get("pile_diameter_mm", 600.0)),
-            pile_length_m=dims.get("length_mm", dims.get("pile_length_mm", 15000.0)) / 1000.0,
-            longitudinal_bars_count=int(dims.get("bars_count", 6)),
-            longitudinal_bar_dia_mm=request.main_bar_diameter_mm,
+            pile_diameter_mm=float(dims.get("pile_diameter_mm") or dims.get("width_mm") or 600.0),
+            pile_length_m=float(dims.get("pile_length_m") or ((dims.get("length_mm") or 12000.0) / 1000.0)),
+            embedment_into_cap_mm=float(dims.get("embedment_into_cap_mm") or 800.0),
+            main_bar_dia_mm=request.main_bar_diameter_mm,
+            num_main_bars=int(request.num_bars or dims.get("num_bars") or dims.get("bars_count") or 8),
             spiral_bar_dia_mm=request.secondary_bar_diameter_mm or 8.0,
             spiral_pitch_mm=request.spacing_mm or 150.0,
+            clear_cover_mm=float(dims.get("clear_cover_mm") or 50.0),
             concrete_grade=request.concrete_grade,
             steel_grade=request.steel_grade,
             source_references=citations,
@@ -219,11 +254,15 @@ def calculate_from_reviewed_parameters(request: ParameterCalculationRequest) -> 
     if mtype == "pile_cap":
         pc_req = PileCapScheduleRequest(
             member_id=request.member_id,
-            cap_length_mm=dims.get("length_mm", dims.get("cap_length_mm", 2500.0)),
-            cap_width_mm=dims.get("width_mm", dims.get("cap_width_mm", 2500.0)),
-            cap_depth_mm=dims.get("depth_mm", dims.get("cap_depth_mm", 900.0)),
-            main_bar_dia_mm=request.main_bar_diameter_mm,
-            main_bar_spacing_mm=request.spacing_mm or 150.0,
+            length_mm=float(dims.get("length_mm") or dims.get("cap_length_mm") or 2400.0),
+            width_mm=float(dims.get("width_mm") or dims.get("cap_width_mm") or 2400.0),
+            depth_mm=float(dims.get("depth_mm") or dims.get("cap_depth_mm") or 1000.0),
+            num_piles=int(dims.get("num_piles") or 4),
+            bottom_mesh_dia_mm=request.main_bar_diameter_mm,
+            bottom_mesh_spacing_mm=request.spacing_mm or 150.0,
+            top_mesh_dia_mm=request.secondary_bar_diameter_mm or 12.0,
+            top_mesh_spacing_mm=float(dims.get("top_mesh_spacing_mm") or 200.0),
+            clear_cover_mm=float(dims.get("clear_cover_mm") or 50.0),
             concrete_grade=request.concrete_grade,
             steel_grade=request.steel_grade,
             source_references=citations,
@@ -233,13 +272,15 @@ def calculate_from_reviewed_parameters(request: ParameterCalculationRequest) -> 
     if mtype == "pier":
         pier_req = PierScheduleRequest(
             member_id=request.member_id,
-            pier_width_mm=dims.get("width_mm", dims.get("pier_width_mm", 800.0)),
-            pier_depth_mm=dims.get("depth_mm", dims.get("pier_depth_mm", 1200.0)),
-            pier_height_mm=dims.get("storey_height_mm", dims.get("pier_height_mm", 6000.0)),
-            longitudinal_bar_dia_mm=request.main_bar_diameter_mm,
-            longitudinal_bars_count=int(dims.get("bars_count", 12)),
+            shape=str(dims.get("shape") or "rectangular"),
+            dimension_1_mm=float(dims.get("dimension_1_mm") or dims.get("width_mm") or dims.get("pier_width_mm") or 800.0),
+            dimension_2_mm=float(dims.get("dimension_2_mm") or dims.get("depth_mm") or dims.get("pier_depth_mm") or 800.0),
+            height_mm=float(dims.get("height_mm") or dims.get("storey_height_mm") or dims.get("pier_height_mm") or 3000.0),
+            main_bar_dia_mm=request.main_bar_diameter_mm,
+            num_main_bars=int(request.num_bars or dims.get("num_bars") or dims.get("bars_count") or 12),
             tie_bar_dia_mm=request.secondary_bar_diameter_mm or 10.0,
             tie_spacing_mm=request.spacing_mm or 150.0,
+            clear_cover_mm=float(dims.get("clear_cover_mm") or 40.0),
             concrete_grade=request.concrete_grade,
             steel_grade=request.steel_grade,
             source_references=citations,
@@ -249,12 +290,17 @@ def calculate_from_reviewed_parameters(request: ParameterCalculationRequest) -> 
     if mtype == "staircase":
         stair_req = StaircaseScheduleRequest(
             member_id=request.member_id,
-            waist_slab_thickness_mm=dims.get("depth_mm", dims.get("waist_slab_thickness_mm", 150.0)),
-            going_length_mm=dims.get("length_mm", dims.get("going_length_mm", 3000.0)),
-            riser_height_mm=dims.get("riser_height_mm", 150.0),
-            tread_width_mm=dims.get("tread_width_mm", 300.0),
+            flight_width_mm=float(dims.get("flight_width_mm") or dims.get("width_mm") or 1200.0),
+            waist_slab_thickness_mm=float(dims.get("waist_slab_thickness_mm") or dims.get("depth_mm") or 150.0),
+            riser_mm=float(dims.get("riser_mm") or dims.get("riser_height_mm") or 150.0),
+            tread_mm=float(dims.get("tread_mm") or dims.get("tread_width_mm") or 250.0),
+            num_risers=int(dims.get("num_risers") or 10),
+            num_treads=int(dims.get("num_treads") or 9),
             main_bar_dia_mm=request.main_bar_diameter_mm,
             main_bar_spacing_mm=request.spacing_mm or 150.0,
+            dist_bar_dia_mm=request.secondary_bar_diameter_mm or 8.0,
+            dist_bar_spacing_mm=float(dims.get("dist_bar_spacing_mm") or 175.0),
+            clear_cover_mm=float(dims.get("clear_cover_mm") or 20.0),
             concrete_grade=request.concrete_grade,
             steel_grade=request.steel_grade,
             source_references=citations,
@@ -264,11 +310,17 @@ def calculate_from_reviewed_parameters(request: ParameterCalculationRequest) -> 
     if mtype == "retaining_wall":
         rw_req = RetainingWallScheduleRequest(
             member_id=request.member_id,
-            stem_height_mm=dims.get("storey_height_mm", dims.get("stem_height_mm", 4000.0)),
-            stem_base_thickness_mm=dims.get("depth_mm", dims.get("stem_base_thickness_mm", 400.0)),
-            stem_top_thickness_mm=dims.get("width_mm", dims.get("stem_top_thickness_mm", 200.0)),
-            vertical_bar_dia_mm=request.main_bar_diameter_mm,
-            vertical_bar_spacing_mm=request.spacing_mm or 150.0,
+            wall_length_m=float(dims.get("wall_length_m") or 10.0),
+            stem_height_mm=float(dims.get("stem_height_mm") or dims.get("height_mm") or dims.get("storey_height_mm") or 3500.0),
+            base_slab_width_mm=float(dims.get("base_slab_width_mm") or dims.get("width_mm") or 2400.0),
+            base_slab_thickness_mm=float(dims.get("base_slab_thickness_mm") or 400.0),
+            stem_base_thickness_mm=float(dims.get("stem_base_thickness_mm") or dims.get("depth_mm") or 400.0),
+            toe_projection_mm=float(dims.get("toe_projection_mm") or 600.0),
+            main_bar_dia_mm=request.main_bar_diameter_mm,
+            main_bar_spacing_mm=request.spacing_mm or 150.0,
+            dist_bar_dia_mm=request.secondary_bar_diameter_mm or 10.0,
+            dist_bar_spacing_mm=float(dims.get("dist_bar_spacing_mm") or 200.0),
+            clear_cover_mm=float(dims.get("clear_cover_mm") or 50.0),
             concrete_grade=request.concrete_grade,
             steel_grade=request.steel_grade,
             source_references=citations,
