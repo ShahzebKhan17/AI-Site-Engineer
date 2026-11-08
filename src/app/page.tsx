@@ -3,7 +3,9 @@
 import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { getSupabase } from "@/lib/supabaseClient";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+// Auto-correct any underscore typo in Render hostname (Render wildcard SSL only covers hyphens)
+const API_BASE_URL = rawApiUrl.replace("ai_site_engineer.onrender.com", "ai-site-engineer.onrender.com");
 
 type DrawingItem = {
   name: string;
@@ -673,6 +675,44 @@ export default function Home() {
       });
 
       if (error) {
+        // If Supabase client fails (e.g. 500 "Error sending confirmation email" or SMTP rate limit):
+        // Automatically attempt server-side auto-confirm registration via Service Role
+        try {
+          const sRes = await fetch("/api/auth/signup", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: authEmail,
+              password: authPassword,
+              full_name: authFullName || "Civil Site Engineer",
+              organization: "AI Site Engineer Workspace",
+            }),
+          });
+          const sData = await sRes.json();
+          if (sRes.ok && sData.success) {
+            const loginRes = await supabase.auth.signInWithPassword({
+              email: authEmail,
+              password: authPassword,
+            });
+            if (loginRes.data?.user) {
+              setUser({
+                id: loginRes.data.user.id,
+                email: loginRes.data.user.email,
+                user_metadata: loginRes.data.user.user_metadata,
+              });
+              setAuthModalOpen(false);
+              triggerToast(`Account created & confirmed! Welcome, ${loginRes.data.user.email}!`);
+              setIsAuthLoading(false);
+              return;
+            }
+          } else if (sData.error) {
+            setAuthNotice(sData.error);
+            setIsAuthLoading(false);
+            return;
+          }
+        } catch {
+          // Fall back to original error message
+        }
         setAuthNotice(error.message);
       } else if (data.user && (!data.user.identities || data.user.identities.length === 0)) {
         setAuthNotice("An account with this email already exists. Please sign in instead.");
@@ -951,7 +991,7 @@ export default function Home() {
         triggerToast("Failed to compile project BBS from drawing sheets.");
       }
     } catch {
-      triggerToast(`Network error contacting calculation service at ${API_BASE_URL}.`);
+      triggerToast(`Network error contacting calculation service at ${API_BASE_URL}. On Render free tier, server wakes up in ~30s. Click Retry.`);
     } finally {
       setIsProjectLoading(false);
     }
@@ -3333,9 +3373,28 @@ export default function Home() {
                     </div>
                   </>
                 )) : (
-                  <div className="text-center py-12 text-slate-400 border border-dashed border-slate-800 rounded-lg">
-                    <p className="font-mono text-xs text-cyan-400">NO PROJECT BBS COMPILED YET</p>
-                    <p className="text-sm mt-1">Click "Compile Consolidated Project BBS" on the left to aggregate all drawing members.</p>
+                  <div className="text-center py-12 text-slate-400 border border-dashed border-slate-800 rounded-lg p-6 max-w-lg mx-auto my-4 space-y-3">
+                    <div className="text-3xl">🏗️</div>
+                    <p className="font-mono text-xs text-cyan-400 font-bold uppercase tracking-wider">NO PROJECT BBS COMPILED YET</p>
+                    <p className="text-xs text-slate-400">
+                      Connect to calculation engine at <code className="text-cyan-300 font-mono text-[11px]">{API_BASE_URL}</code> or load the reference demo.
+                    </p>
+                    <div className="flex items-center justify-center gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => handleLoadProjectBBS()}
+                        className="btn-primary text-xs px-4 py-2 font-mono flex items-center gap-1.5"
+                      >
+                        🔄 Retry Compilation
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleLoadProjectBBS(true)}
+                        className="btn-secondary text-xs px-4 py-2 font-mono flex items-center gap-1.5"
+                      >
+                        ⚡ Load Demo Project
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

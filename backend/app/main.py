@@ -12,10 +12,15 @@ app = FastAPI(
     description="Deterministic calculation service for reviewed structural drawing inputs per IS 456 & SP 34.",
 )
 
-# Enable CORS for Next.js frontend
+# Enable CORS for Next.js frontend (local dev and Vercel production)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "https://ai-site-engineer-amber.vercel.app",
+    ],
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
