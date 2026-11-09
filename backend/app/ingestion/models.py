@@ -26,6 +26,16 @@ class ExtractedMember(BaseModel):
     stirrup_dia_mm: float | None = None
     stirrup_spacing_mm: float | None = None
     clear_cover_mm: float | None = None
+    flight_width_mm: float | None = None
+    waist_slab_thickness_mm: float | None = None
+    riser_mm: float | None = None
+    tread_mm: float | None = None
+    num_risers: int | None = None
+    num_treads: int | None = None
+    has_landings: bool | None = None
+    bottom_landing_length_mm: float | None = None
+    top_landing_length_mm: float | None = None
+    dist_bar_spacing_mm: float | None = None
     concrete_grade: str = "M25"
     steel_grade: str = "FE500"
     reinforcement_summary: str = ""

@@ -52,6 +52,7 @@ Analyze the attached structural drawing/document carefully and extract:
    - tie_spacing_end_mm: tie / stirrup spacing in confining / end zones in mm if specified (e.g. 100)
    - end_zone_length_mm: length of confining / end zone at each end in mm if specified (e.g. 300)
    - tie_spacing_mid_mm: tie / stirrup spacing in middle zone in mm if specified (e.g. 150)
+   - For STAIRCASE (e.g. ST-01, ST1): extract flight_width_mm, waist_slab_thickness_mm, riser_mm, tread_mm, num_risers, num_treads, has_landings (false if excluded/none, true if present), bottom_landing_length_mm (0 if excluded), top_landing_length_mm (0 if excluded), main_bar_diameter_mm, spacing_mm, secondary_bar_diameter_mm, dist_bar_spacing_mm, clear_cover_mm
    - main_bar_diameter_mm: primary longitudinal/mesh rebar diameter (e.g. 16, 20, 25, 32)
    - secondary_bar_diameter_mm: secondary/stirrup/tie/distribution rebar diameter (e.g. 8, 10)
    - spacing_mm: center-to-center spacing in mm if applicable (e.g. 150, 200)
@@ -321,6 +322,38 @@ def _parse_gemini_json_response(raw_text: str, file_name: str) -> ExtractionResu
             if cover_val is not None:
                 dims["clear_cover_mm"] = float(cover_val)
 
+        # Staircase specific parameter inference
+        f_width_val = m.get("flight_width_mm") or dims.get("flight_width_mm") or (dims.get("width_mm") if mtype == "staircase" else None)
+        waist_th_val = m.get("waist_slab_thickness_mm") or dims.get("waist_slab_thickness_mm") or (dims.get("depth_mm") if mtype == "staircase" else None)
+        riser_val = m.get("riser_mm") or dims.get("riser_mm") or dims.get("riser_height_mm")
+        tread_val = m.get("tread_mm") or dims.get("tread_mm") or dims.get("tread_width_mm") or dims.get("going_mm")
+        num_risers_val = m.get("num_risers") or dims.get("num_risers")
+        num_treads_val = m.get("num_treads") or dims.get("num_treads") or dims.get("num_goings")
+        has_landings_val = m.get("has_landings") if m.get("has_landings") is not None else dims.get("has_landings")
+        bot_land_val = m.get("bottom_landing_length_mm") or dims.get("bottom_landing_length_mm")
+        top_land_val = m.get("top_landing_length_mm") or dims.get("top_landing_length_mm")
+        dist_sp_val = m.get("dist_bar_spacing_mm") or dims.get("dist_bar_spacing_mm")
+
+        if mtype == "staircase":
+            if f_width_val is not None:
+                dims["flight_width_mm"] = float(f_width_val)
+                dims["width_mm"] = float(f_width_val)
+            if waist_th_val is not None:
+                dims["waist_slab_thickness_mm"] = float(waist_th_val)
+                dims["depth_mm"] = float(waist_th_val)
+            if riser_val is not None:
+                dims["riser_mm"] = float(riser_val)
+            if tread_val is not None:
+                dims["tread_mm"] = float(tread_val)
+            if num_risers_val is not None:
+                dims["num_risers"] = float(num_risers_val)
+            if num_treads_val is not None:
+                dims["num_treads"] = float(num_treads_val)
+            if has_landings_val is not None:
+                dims["has_landings"] = 1.0 if has_landings_val else 0.0
+            if dist_sp_val is not None:
+                dims["dist_bar_spacing_mm"] = float(dist_sp_val)
+
         members.append(
             ExtractedMember(
                 member_id=mid,
@@ -337,6 +370,16 @@ def _parse_gemini_json_response(raw_text: str, file_name: str) -> ExtractionResu
                 stirrup_dia_mm=float(stir_dia_val) if stir_dia_val is not None else None,
                 stirrup_spacing_mm=float(stir_sp_val) if stir_sp_val is not None else None,
                 clear_cover_mm=float(cover_val) if cover_val is not None else None,
+                flight_width_mm=float(f_width_val) if f_width_val is not None else None,
+                waist_slab_thickness_mm=float(waist_th_val) if waist_th_val is not None else None,
+                riser_mm=float(riser_val) if riser_val is not None else None,
+                tread_mm=float(tread_val) if tread_val is not None else None,
+                num_risers=int(num_risers_val) if num_risers_val is not None else None,
+                num_treads=int(num_treads_val) if num_treads_val is not None else None,
+                has_landings=bool(has_landings_val) if has_landings_val is not None else None,
+                bottom_landing_length_mm=float(bot_land_val) if bot_land_val is not None else None,
+                top_landing_length_mm=float(top_land_val) if top_land_val is not None else None,
+                dist_bar_spacing_mm=float(dist_sp_val) if dist_sp_val is not None else None,
                 concrete_grade=str(m.get("concrete_grade", "M25")).upper(),
                 steel_grade=str(m.get("steel_grade", "FE500")).upper(),
                 reinforcement_summary=reinf_str,

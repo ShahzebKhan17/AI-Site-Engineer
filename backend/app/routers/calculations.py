@@ -115,6 +115,7 @@ class ParameterCalculationRequest(BaseModel):
     tie_spacing_end_mm: float | None = None
     end_zone_length_mm: float | None = None
     tie_spacing_mid_mm: float | None = None
+    # Beam-specific fields:
     bottom_bars_count: int | None = None
     bottom_bar_dia_mm: float | None = None
     top_bars_count: int | None = None
@@ -122,6 +123,17 @@ class ParameterCalculationRequest(BaseModel):
     stirrup_dia_mm: float | None = None
     stirrup_spacing_mm: float | None = None
     clear_cover_mm: float | None = None
+    # Staircase-specific fields:
+    flight_width_mm: float | None = None
+    waist_slab_thickness_mm: float | None = None
+    riser_mm: float | None = None
+    tread_mm: float | None = None
+    num_risers: int | None = None
+    num_treads: int | None = None
+    has_landings: bool | None = None
+    bottom_landing_length_mm: float | None = None
+    top_landing_length_mm: float | None = None
+    dist_bar_spacing_mm: float | None = None
     concrete_grade: str = "M25"
     steel_grade: str = "FE500"
     citations: list[str] = Field(default_factory=list)
@@ -288,19 +300,45 @@ def calculate_from_reviewed_parameters(request: ParameterCalculationRequest) -> 
         return calculate_pier_bbs(pier_req)
 
     if mtype == "staircase":
+        # Resolve landing status
+        has_landings = request.has_landings if request.has_landings is not None else dims.get("has_landings", True)
+        if str(has_landings).lower() in ("false", "0", "no"):
+            has_landings = False
+
+        if not has_landings:
+            bot_land = 0.0
+            top_land = 0.0
+        else:
+            bot_land = float(request.bottom_landing_length_mm if request.bottom_landing_length_mm is not None else dims.get("bottom_landing_length_mm", 1200.0))
+            top_land = float(request.top_landing_length_mm if request.top_landing_length_mm is not None else dims.get("top_landing_length_mm", 1200.0))
+
+        fw = float(request.flight_width_mm or dims.get("flight_width_mm") or dims.get("width_mm") or 1200.0)
+        waist_th = float(request.waist_slab_thickness_mm or dims.get("waist_slab_thickness_mm") or dims.get("depth_mm") or 150.0)
+        r_mm = float(request.riser_mm or dims.get("riser_mm") or dims.get("riser_height_mm") or 150.0)
+        t_mm = float(request.tread_mm or dims.get("tread_mm") or dims.get("tread_width_mm") or dims.get("going_mm") or 250.0)
+        n_r = int(request.num_risers or dims.get("num_risers") or 10)
+        n_t = int(request.num_treads or dims.get("num_treads") or dims.get("num_goings") or 9)
+        m_dia = float(request.main_bar_diameter_mm or dims.get("main_bar_dia_mm") or 12.0)
+        m_sp = float(request.spacing_mm or dims.get("main_bar_spacing_mm") or 150.0)
+        d_dia = float(request.secondary_bar_diameter_mm or dims.get("dist_bar_dia_mm") or 8.0)
+        d_sp = float(request.dist_bar_spacing_mm or dims.get("dist_bar_spacing_mm") or 175.0)
+        cov = float(request.clear_cover_mm or dims.get("clear_cover_mm") or 20.0)
+
         stair_req = StaircaseScheduleRequest(
             member_id=request.member_id,
-            flight_width_mm=float(dims.get("flight_width_mm") or dims.get("width_mm") or 1200.0),
-            waist_slab_thickness_mm=float(dims.get("waist_slab_thickness_mm") or dims.get("depth_mm") or 150.0),
-            riser_mm=float(dims.get("riser_mm") or dims.get("riser_height_mm") or 150.0),
-            tread_mm=float(dims.get("tread_mm") or dims.get("tread_width_mm") or 250.0),
-            num_risers=int(dims.get("num_risers") or 10),
-            num_treads=int(dims.get("num_treads") or 9),
-            main_bar_dia_mm=request.main_bar_diameter_mm,
-            main_bar_spacing_mm=request.spacing_mm or 150.0,
-            dist_bar_dia_mm=request.secondary_bar_diameter_mm or 8.0,
-            dist_bar_spacing_mm=float(dims.get("dist_bar_spacing_mm") or 175.0),
-            clear_cover_mm=float(dims.get("clear_cover_mm") or 20.0),
+            flight_width_mm=fw,
+            waist_slab_thickness_mm=waist_th,
+            riser_mm=r_mm,
+            tread_mm=t_mm,
+            num_risers=n_r,
+            num_treads=n_t,
+            bottom_landing_length_mm=bot_land,
+            top_landing_length_mm=top_land,
+            main_bar_dia_mm=m_dia,
+            main_bar_spacing_mm=m_sp,
+            dist_bar_dia_mm=d_dia,
+            dist_bar_spacing_mm=d_sp,
+            clear_cover_mm=cov,
             concrete_grade=request.concrete_grade,
             steel_grade=request.steel_grade,
             source_references=citations,

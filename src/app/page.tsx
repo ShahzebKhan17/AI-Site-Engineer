@@ -30,6 +30,16 @@ type ExtractedMemberData = {
   stirrup_dia_mm?: number | null;
   stirrup_spacing_mm?: number | null;
   clear_cover_mm?: number | null;
+  flight_width_mm?: number | null;
+  waist_slab_thickness_mm?: number | null;
+  riser_mm?: number | null;
+  tread_mm?: number | null;
+  num_risers?: number | null;
+  num_treads?: number | null;
+  has_landings?: boolean | null;
+  bottom_landing_length_mm?: number | null;
+  top_landing_length_mm?: number | null;
+  dist_bar_spacing_mm?: number | null;
   concrete_grade: string;
   steel_grade: string;
   reinforcement_summary: string;
@@ -1613,7 +1623,31 @@ export default function Home() {
                   <label className="text-slate-400 block mb-1">Structural Element Type</label>
                   <select
                     value={reviewMember.member_type.toLowerCase()}
-                    onChange={(e) => setReviewMember({ ...reviewMember, member_type: e.target.value })}
+                    onChange={(e) => {
+                      const newType = e.target.value;
+                      if (newType === "staircase") {
+                        setReviewMember({
+                          ...reviewMember,
+                          member_type: newType,
+                          flight_width_mm: reviewMember.flight_width_mm || reviewMember.dimensions?.flight_width_mm || reviewMember.dimensions?.width_mm || 1200,
+                          waist_slab_thickness_mm: reviewMember.waist_slab_thickness_mm || reviewMember.dimensions?.waist_slab_thickness_mm || reviewMember.dimensions?.depth_mm || 150,
+                          riser_mm: reviewMember.riser_mm || reviewMember.dimensions?.riser_mm || 150,
+                          tread_mm: reviewMember.tread_mm || reviewMember.dimensions?.tread_mm || 270,
+                          num_risers: reviewMember.num_risers || reviewMember.dimensions?.num_risers || 10,
+                          num_treads: reviewMember.num_treads || reviewMember.dimensions?.num_treads || 10,
+                          has_landings: reviewMember.has_landings ?? (reviewMember.dimensions?.has_landings ? true : false),
+                          bottom_landing_length_mm: reviewMember.bottom_landing_length_mm ?? reviewMember.dimensions?.bottom_landing_length_mm ?? 0,
+                          top_landing_length_mm: reviewMember.top_landing_length_mm ?? reviewMember.dimensions?.top_landing_length_mm ?? 0,
+                          main_bar_diameter_mm: reviewMember.main_bar_diameter_mm || 12,
+                          spacing_mm: reviewMember.spacing_mm || 150,
+                          secondary_bar_diameter_mm: reviewMember.secondary_bar_diameter_mm || 8,
+                          dist_bar_spacing_mm: reviewMember.dist_bar_spacing_mm || reviewMember.dimensions?.dist_bar_spacing_mm || 200,
+                          clear_cover_mm: reviewMember.clear_cover_mm ?? reviewMember.dimensions?.clear_cover_mm ?? 25,
+                        });
+                      } else {
+                        setReviewMember({ ...reviewMember, member_type: newType });
+                      }
+                    }}
                     className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white"
                   >
                     <option value="column">Column</option>
@@ -1630,71 +1664,296 @@ export default function Home() {
               </div>
 
               {/* Dimensions */}
-              <div className="bg-slate-950/70 p-3 rounded-lg border border-slate-800 space-y-2">
-                <span className="text-[11px] font-bold text-slate-300 block uppercase tracking-wider">
-                  Geometric Dimensions (mm)
-                </span>
-                <div className="grid grid-cols-3 gap-2">
-                  <div>
-                    <label className="text-slate-400 block mb-1 text-[11px]">Width (mm)</label>
-                    <input
-                      type="number"
-                      value={reviewMember.dimensions.width_mm || ""}
-                      onChange={(e) =>
-                        setReviewMember({
-                          ...reviewMember,
-                          dimensions: { ...reviewMember.dimensions, width_mm: parseFloat(e.target.value) || 0 },
-                        })
-                      }
-                      className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white"
-                      placeholder="e.g. 400"
-                    />
+              {reviewMember.member_type.toLowerCase() === "staircase" ? (
+                <div className="bg-slate-950/70 p-3 rounded-lg border border-slate-800 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-amber-400 block uppercase tracking-wider">
+                      Staircase Flight Geometry (IS 456 Cl. 33 &amp; SP 34)
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      Waist-Slab Flight
+                    </span>
                   </div>
-                  <div>
-                    <label className="text-slate-400 block mb-1 text-[11px]">Depth/Thk (mm)</label>
-                    <input
-                      type="number"
-                      value={reviewMember.dimensions.depth_mm || ""}
-                      onChange={(e) =>
-                        setReviewMember({
-                          ...reviewMember,
-                          dimensions: { ...reviewMember.dimensions, depth_mm: parseFloat(e.target.value) || 0 },
-                        })
-                      }
-                      className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white"
-                      placeholder="e.g. 600"
-                    />
+
+                  {/* Flight Dimensions Grid */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                    <div>
+                      <label className="text-slate-400 block mb-1 text-[11px]">Flight Width (mm)</label>
+                      <input
+                        type="number"
+                        value={reviewMember.flight_width_mm ?? reviewMember.dimensions?.flight_width_mm ?? reviewMember.dimensions?.width_mm ?? 1200}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value) || 0;
+                          setReviewMember({
+                            ...reviewMember,
+                            flight_width_mm: val,
+                            dimensions: { ...reviewMember.dimensions, flight_width_mm: val, width_mm: val },
+                          });
+                        }}
+                        className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-bold"
+                        placeholder="e.g. 1200"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-slate-400 block mb-1 text-[11px]">Waist Slab Thk (mm)</label>
+                      <input
+                        type="number"
+                        value={reviewMember.waist_slab_thickness_mm ?? reviewMember.dimensions?.waist_slab_thickness_mm ?? reviewMember.dimensions?.depth_mm ?? 150}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value) || 0;
+                          setReviewMember({
+                            ...reviewMember,
+                            waist_slab_thickness_mm: val,
+                            dimensions: { ...reviewMember.dimensions, waist_slab_thickness_mm: val, depth_mm: val },
+                          });
+                        }}
+                        className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-bold"
+                        placeholder="e.g. 150"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-slate-400 block mb-1 text-[11px]">Riser Height R (mm)</label>
+                      <input
+                        type="number"
+                        value={reviewMember.riser_mm ?? reviewMember.dimensions?.riser_mm ?? 150}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value) || 0;
+                          setReviewMember({
+                            ...reviewMember,
+                            riser_mm: val,
+                            dimensions: { ...reviewMember.dimensions, riser_mm: val },
+                          });
+                        }}
+                        className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white"
+                        placeholder="e.g. 150"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-slate-400 block mb-1 text-[11px]">Tread / Going T (mm)</label>
+                      <input
+                        type="number"
+                        value={reviewMember.tread_mm ?? reviewMember.dimensions?.tread_mm ?? 270}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value) || 0;
+                          setReviewMember({
+                            ...reviewMember,
+                            tread_mm: val,
+                            dimensions: { ...reviewMember.dimensions, tread_mm: val },
+                          });
+                        }}
+                        className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white"
+                        placeholder="e.g. 270"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-slate-400 block mb-1 text-[11px]">Number of Risers</label>
+                      <input
+                        type="number"
+                        value={reviewMember.num_risers ?? reviewMember.dimensions?.num_risers ?? 10}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 0;
+                          setReviewMember({
+                            ...reviewMember,
+                            num_risers: val,
+                            dimensions: { ...reviewMember.dimensions, num_risers: val },
+                          });
+                        }}
+                        className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-bold"
+                        placeholder="e.g. 10"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-slate-400 block mb-1 text-[11px]">Number of Goings</label>
+                      <input
+                        type="number"
+                        value={reviewMember.num_treads ?? reviewMember.dimensions?.num_treads ?? 10}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 0;
+                          setReviewMember({
+                            ...reviewMember,
+                            num_treads: val,
+                            dimensions: { ...reviewMember.dimensions, num_treads: val },
+                          });
+                        }}
+                        className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-bold"
+                        placeholder="e.g. 10"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-slate-400 block mb-1 text-[11px]">
-                      {reviewMember.member_type.toLowerCase() === "beam" ? "Clear Span (mm)" : "Height/Span (mm)"}
-                    </label>
-                    <input
-                      type="number"
-                      value={
-                        reviewMember.dimensions.clear_span_mm ||
-                        reviewMember.dimensions.storey_height_mm ||
-                        reviewMember.dimensions.length_mm ||
-                        ""
-                      }
-                      onChange={(e) => {
-                        const val = parseFloat(e.target.value) || 0;
-                        setReviewMember({
-                          ...reviewMember,
-                          dimensions: {
-                            ...reviewMember.dimensions,
-                            clear_span_mm: val,
-                            storey_height_mm: val,
-                            length_mm: val,
-                          },
-                        });
-                      }}
-                      className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-bold"
-                      placeholder={reviewMember.member_type.toLowerCase() === "beam" ? "e.g. 4000" : "e.g. 3200"}
-                    />
+
+                  {/* Computed Flight Metrics Live Preview */}
+                  {(() => {
+                    const nR = reviewMember.num_risers ?? reviewMember.dimensions?.num_risers ?? 10;
+                    const r = reviewMember.riser_mm ?? reviewMember.dimensions?.riser_mm ?? 150;
+                    const nT = reviewMember.num_treads ?? reviewMember.dimensions?.num_treads ?? 10;
+                    const t = reviewMember.tread_mm ?? reviewMember.dimensions?.tread_mm ?? 270;
+                    const riseTotal = nR * r;
+                    const goingTotal = nT * t;
+                    const slopeMm = Math.sqrt(goingTotal * goingTotal + riseTotal * riseTotal);
+                    const slopeM = slopeMm / 1000.0;
+                    const pitchDeg = goingTotal > 0 ? (Math.atan2(riseTotal, goingTotal) * 180) / Math.PI : 0;
+                    const isPitchCompliant = pitchDeg >= 25 && pitchDeg <= 40;
+
+                    return (
+                      <div className="bg-slate-900/80 p-2.5 rounded border border-slate-800 text-[11px] space-y-1.5 font-mono">
+                        <div className="flex items-center justify-between text-slate-300">
+                          <span>Total Rise: <strong className="text-amber-300">{riseTotal} mm</strong> ({nR} × {r}mm)</span>
+                          <span>Total Going: <strong className="text-cyan-300">{goingTotal} mm</strong> ({nT} × {t}mm)</span>
+                        </div>
+                        <div className="flex items-center justify-between border-t border-slate-800/80 pt-1.5 text-slate-300">
+                          <span>
+                            Sloping Flight: <strong className="text-emerald-400">{slopeMm.toFixed(1)} mm</strong> ({slopeM.toFixed(3)} m)
+                          </span>
+                          <span className={isPitchCompliant ? "text-emerald-400 font-bold" : "text-amber-400 font-bold"}>
+                            Pitch: {pitchDeg.toFixed(1)}° {isPitchCompliant ? "✓ (25°–40° compliant)" : "⚠️"}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Landings Configuration Toggle */}
+                  <div className="pt-2 border-t border-slate-800/80">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] text-slate-300 font-bold uppercase">
+                        Landing Slabs Detailing
+                      </span>
+                      <label className="text-[11px] flex items-center gap-1.5 text-slate-300 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={reviewMember.has_landings ?? false}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setReviewMember({
+                              ...reviewMember,
+                              has_landings: checked,
+                              bottom_landing_length_mm: checked ? (reviewMember.bottom_landing_length_mm || 1200) : 0,
+                              top_landing_length_mm: checked ? (reviewMember.top_landing_length_mm || 1200) : 0,
+                              dimensions: {
+                                ...reviewMember.dimensions,
+                                has_landings: checked ? 1 : 0,
+                                bottom_landing_length_mm: checked ? (reviewMember.bottom_landing_length_mm || 1200) : 0,
+                                top_landing_length_mm: checked ? (reviewMember.top_landing_length_mm || 1200) : 0,
+                              },
+                            });
+                          }}
+                          className="rounded border-slate-700 bg-slate-900 text-cyan-500 focus:ring-0 cursor-pointer"
+                        />
+                        <span>Include Landing Slabs</span>
+                      </label>
+                    </div>
+
+                    {reviewMember.has_landings ? (
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-slate-400 block mb-1 text-[10px]">Bottom Landing Span (mm)</label>
+                          <input
+                            type="number"
+                            value={reviewMember.bottom_landing_length_mm || 1200}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              setReviewMember({
+                                ...reviewMember,
+                                bottom_landing_length_mm: val,
+                                dimensions: { ...reviewMember.dimensions, bottom_landing_length_mm: val },
+                              });
+                            }}
+                            className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs"
+                            placeholder="e.g. 1200"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-slate-400 block mb-1 text-[10px]">Top Landing Span (mm)</label>
+                          <input
+                            type="number"
+                            value={reviewMember.top_landing_length_mm || 1200}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              setReviewMember({
+                                ...reviewMember,
+                                top_landing_length_mm: val,
+                                dimensions: { ...reviewMember.dimensions, top_landing_length_mm: val },
+                              });
+                            }}
+                            className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs"
+                            placeholder="e.g. 1200"
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-[10px] text-slate-400 italic bg-slate-900/50 p-2 rounded border border-slate-800">
+                        Single straight flight without landings (per ST-01). Rebar embeds into top &amp; bottom supporting beams/walls.
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
+              ) : (
+                <div className="bg-slate-950/70 p-3 rounded-lg border border-slate-800 space-y-2">
+                  <span className="text-[11px] font-bold text-slate-300 block uppercase tracking-wider">
+                    Geometric Dimensions (mm)
+                  </span>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="text-slate-400 block mb-1 text-[11px]">Width (mm)</label>
+                      <input
+                        type="number"
+                        value={reviewMember.dimensions.width_mm || ""}
+                        onChange={(e) =>
+                          setReviewMember({
+                            ...reviewMember,
+                            dimensions: { ...reviewMember.dimensions, width_mm: parseFloat(e.target.value) || 0 },
+                          })
+                        }
+                        className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white"
+                        placeholder="e.g. 400"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-slate-400 block mb-1 text-[11px]">Depth/Thk (mm)</label>
+                      <input
+                        type="number"
+                        value={reviewMember.dimensions.depth_mm || ""}
+                        onChange={(e) =>
+                          setReviewMember({
+                            ...reviewMember,
+                            dimensions: { ...reviewMember.dimensions, depth_mm: parseFloat(e.target.value) || 0 },
+                          })
+                        }
+                        className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white"
+                        placeholder="e.g. 600"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-slate-400 block mb-1 text-[11px]">
+                        {reviewMember.member_type.toLowerCase() === "beam" ? "Clear Span (mm)" : "Height/Span (mm)"}
+                      </label>
+                      <input
+                        type="number"
+                        value={
+                          reviewMember.dimensions.clear_span_mm ||
+                          reviewMember.dimensions.storey_height_mm ||
+                          reviewMember.dimensions.length_mm ||
+                          ""
+                        }
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value) || 0;
+                          setReviewMember({
+                            ...reviewMember,
+                            dimensions: {
+                              ...reviewMember.dimensions,
+                              clear_span_mm: val,
+                              storey_height_mm: val,
+                              length_mm: val,
+                            },
+                          });
+                        }}
+                        className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-bold"
+                        placeholder={reviewMember.member_type.toLowerCase() === "beam" ? "e.g. 4000" : "e.g. 3200"}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Reinforcement */}
               <div className="bg-slate-950/70 p-3 rounded-lg border border-slate-800 space-y-3">
@@ -1835,6 +2094,137 @@ export default function Home() {
                         </div>
                         <div>
                           <label className="text-slate-400 block mb-1 text-[10px]">Clear Cover (mm)</label>
+                          <input
+                            type="number"
+                            value={reviewMember.clear_cover_mm ?? reviewMember.dimensions?.clear_cover_mm ?? 25}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              setReviewMember({
+                                ...reviewMember,
+                                clear_cover_mm: val,
+                                dimensions: { ...reviewMember.dimensions, clear_cover_mm: val },
+                              });
+                            }}
+                            className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs"
+                            placeholder="e.g. 25"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : reviewMember.member_type.toLowerCase() === "staircase" ? (
+                  <div className="space-y-3">
+                    {/* Main Longitudinal Reinforcement (Running Along Slope) */}
+                    <div className="bg-slate-900/60 p-2.5 rounded border border-slate-800">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[10px] text-cyan-300 font-bold uppercase">
+                          Main Longitudinal Reinforcement (Running Along Slope)
+                        </span>
+                        {(() => {
+                          const fw = reviewMember.flight_width_mm ?? reviewMember.dimensions?.flight_width_mm ?? reviewMember.dimensions?.width_mm ?? 1200;
+                          const cov = reviewMember.clear_cover_mm ?? reviewMember.dimensions?.clear_cover_mm ?? 25;
+                          const sp = reviewMember.spacing_mm || 150;
+                          const calcCount = Math.floor((fw - 2 * cov) / sp) + 1;
+                          return (
+                            <span className="text-[10px] text-emerald-400 font-mono font-bold bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-800/50">
+                              Calculated: {calcCount} bars across {fw}mm width
+                            </span>
+                          );
+                        })()}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-slate-400 block mb-1 text-[10px]">Main Bar Dia (mm)</label>
+                          <input
+                            type="number"
+                            value={reviewMember.main_bar_diameter_mm || 12}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              setReviewMember({
+                                ...reviewMember,
+                                main_bar_diameter_mm: val,
+                                dimensions: { ...reviewMember.dimensions, main_bar_diameter_mm: val },
+                              });
+                            }}
+                            className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-bold text-xs"
+                            placeholder="e.g. 12"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-slate-400 block mb-1 text-[10px]">Spacing c/c (mm)</label>
+                          <input
+                            type="number"
+                            value={reviewMember.spacing_mm || 150}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              setReviewMember({
+                                ...reviewMember,
+                                spacing_mm: val,
+                                dimensions: { ...reviewMember.dimensions, spacing_mm: val, main_bar_spacing_mm: val },
+                              });
+                            }}
+                            className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs"
+                            placeholder="e.g. 150"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Transverse Distribution Reinforcement (Across Flight Width) */}
+                    <div className="bg-slate-900/60 p-2.5 rounded border border-slate-800">
+                      <span className="text-[10px] text-cyan-300 font-bold block mb-1.5 uppercase">
+                        Transverse Distribution Reinforcement (Across Flight Width)
+                      </span>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-slate-400 block mb-1 text-[10px]">Distribution Bar Dia (mm)</label>
+                          <input
+                            type="number"
+                            value={reviewMember.secondary_bar_diameter_mm || 8}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              setReviewMember({
+                                ...reviewMember,
+                                secondary_bar_diameter_mm: val,
+                                dimensions: { ...reviewMember.dimensions, secondary_bar_diameter_mm: val, dist_bar_dia_mm: val },
+                              });
+                            }}
+                            className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-bold text-xs"
+                            placeholder="e.g. 8"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-slate-400 block mb-1 text-[10px]">Distribution Spacing c/c (mm)</label>
+                          <input
+                            type="number"
+                            value={reviewMember.dist_bar_spacing_mm ?? reviewMember.dimensions?.dist_bar_spacing_mm ?? 200}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              setReviewMember({
+                                ...reviewMember,
+                                dist_bar_spacing_mm: val,
+                                dimensions: { ...reviewMember.dimensions, dist_bar_spacing_mm: val },
+                              });
+                            }}
+                            className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs"
+                            placeholder="e.g. 200"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Nominal Clear Cover */}
+                    <div className="bg-slate-900/60 p-2.5 rounded border border-slate-800">
+                      <div className="grid grid-cols-2 gap-2 items-center">
+                        <div>
+                          <span className="text-[10px] text-cyan-300 font-bold block uppercase">
+                            Nominal Clear Cover
+                          </span>
+                          <span className="text-[9px] text-slate-400 block">
+                            IS 456 Cl. 26.4 / SP 34
+                          </span>
+                        </div>
+                        <div>
                           <input
                             type="number"
                             value={reviewMember.clear_cover_mm ?? reviewMember.dimensions?.clear_cover_mm ?? 25}

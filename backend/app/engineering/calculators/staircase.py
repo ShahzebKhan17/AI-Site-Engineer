@@ -84,14 +84,77 @@ def calculate_staircase_bbs(request: StaircaseScheduleRequest) -> BBSCalculation
     num_main_bars = int(math.floor((width - 2.0 * cover) / main_spacing)) + 1
     unit_wt_main = round((main_dia ** 2) / 162.0, 3)
 
-    # 1. Main Bottom Waist Bar (anchored Ld into both bottom and top landings)
-    bottom_anchorage = min(request.bottom_landing_length_mm - cover, Ld)
-    top_anchorage = min(request.top_landing_length_mm - cover, Ld)
-    bend_ded = calculate_bend_deduction(main_dia, 45.0).deduction_mm if request.deduct_bends else 0.0
+    bottom_has_landing = request.bottom_landing_length_mm > 0
+    top_has_landing = request.top_landing_length_mm > 0
 
-    main_bottom_cutting_mm = inclined_flight_mm + bottom_anchorage + top_anchorage - (2.0 * bend_ded)
+    # 1. Main Bottom Waist Bar (anchored Ld into landings, or support embedment if straight flight)
+    if bottom_has_landing:
+        bottom_anchorage = round(min(max(request.bottom_landing_length_mm - cover, 0.0), Ld), 1)
+        bottom_label = "Bottom landing anchorage (Ld)"
+        bottom_clause = "SP 34 Sec. 10"
+        bottom_formula = f"min(Landing {request.bottom_landing_length_mm:.0f} - {cover:.0f} cover, Ld {Ld:.1f}) = {bottom_anchorage:.1f} mm"
+        bottom_explanation = "Tension development length anchorage into bottom landing slab per SP 34 Sec. 10 & IS 456 Cl. 26.2.1."
+    else:
+        bottom_anchorage = round(min(230.0 - cover, Ld / 3.0), 1)
+        bottom_label = "Bottom support embedment"
+        bottom_clause = "SP 34 Cl. 10.1"
+        bottom_formula = f"min(Support 230 - {cover:.0f} cover, Ld/3 = {Ld/3.0:.1f}) = {bottom_anchorage:.1f} mm"
+        bottom_explanation = "Embedment into supporting plinth beam/wall for straight flight without landing per IS 456 Cl. 33 & SP 34 Cl. 10.1."
+
+    if top_has_landing:
+        top_anchorage = round(min(max(request.top_landing_length_mm - cover, 0.0), Ld), 1)
+        top_label = "Top landing anchorage (Ld)"
+        top_clause = "SP 34 Sec. 10"
+        top_formula = f"min(Landing {request.top_landing_length_mm:.0f} - {cover:.0f} cover, Ld {Ld:.1f}) = {top_anchorage:.1f} mm"
+        top_explanation = "Tension development length anchorage into top landing slab per SP 34 Sec. 10 & IS 456 Cl. 26.2.1."
+    else:
+        top_anchorage = round(min(230.0 - cover, Ld / 3.0), 1)
+        top_label = "Top support embedment"
+        top_clause = "IS 456 Cl. 33"
+        top_formula = f"min(Support 230 - {cover:.0f} cover, Ld/3 = {Ld/3.0:.1f}) = {top_anchorage:.1f} mm"
+        top_explanation = "Embedment into top floor beam/wall for straight flight without landing per IS 456 Cl. 33."
+
+    bend_ded = calculate_bend_deduction(main_dia, 45.0).deduction_mm if request.deduct_bends else 0.0
+    num_bends = (1 if bottom_has_landing else 0) + (1 if top_has_landing else 0)
+    total_bend_ded = num_bends * bend_ded
+
+    main_bottom_cutting_mm = round(inclined_flight_mm + bottom_anchorage + top_anchorage - total_bend_ded, 1)
     main_bot_m = round(main_bottom_cutting_mm / 1000.0, 3)
     total_main_bot_m = round(main_bot_m * num_main_bars, 3)
+
+    main_breakdown = [
+        CalculationBreakdown(
+            label="Inclined flight waist length",
+            length_mm=round(inclined_flight_mm, 1),
+            clause="sqrt(G^2 + H^2)",
+            formula=f"sqrt(({total_going_mm:.0f})^2 + ({total_rise_mm:.0f})^2) = {inclined_flight_mm:.1f} mm",
+            explanation=f"Pythagorean inclined length of waist slab along flight slope ({num_r} risers @ {R:.0f} mm, {num_t} treads @ {T:.0f} mm).",
+        ),
+        CalculationBreakdown(
+            label=bottom_label,
+            length_mm=bottom_anchorage,
+            clause=bottom_clause,
+            formula=bottom_formula,
+            explanation=bottom_explanation,
+        ),
+        CalculationBreakdown(
+            label=top_label,
+            length_mm=top_anchorage,
+            clause=top_clause,
+            formula=top_formula,
+            explanation=top_explanation,
+        ),
+    ]
+    if total_bend_ded > 0:
+        main_breakdown.append(
+            CalculationBreakdown(
+                label=f"Junction bend deductions ({num_bends} x 45°: -1d)",
+                length_mm=-total_bend_ded,
+                clause="IS 2502",
+                formula=f"{num_bends} × (-1.0 × {main_dia:.0f} mm) = {-total_bend_ded:.1f} mm",
+                explanation="IS 2502 & SP 34: 45° bend elongation deduction of 1d per bend.",
+            )
+        )
 
     items.append(BBSItem(
         bar_mark="Main Waist Tensile Rebar",
@@ -104,49 +167,63 @@ def calculate_staircase_bbs(request: StaircaseScheduleRequest) -> BBSCalculation
         total_length_m=total_main_bot_m,
         unit_weight_kg_m=unit_wt_main,
         total_weight_kg=round(unit_wt_main * total_main_bot_m, 2),
-        shape_description="Inclined waist bottom bar continuing with Ld development into both landing slabs",
-        breakdown=[
-            CalculationBreakdown(label="Inclined flight waist length", length_mm=inclined_flight_mm, clause="sqrt(G^2 + H^2)"),
-            CalculationBreakdown(label="Bottom landing anchorage (Ld)", length_mm=bottom_anchorage, clause="SP 34 Sec. 10"),
-            CalculationBreakdown(label="Top landing anchorage (Ld)", length_mm=top_anchorage, clause="SP 34 Sec. 10"),
-            CalculationBreakdown(label="Junction bend deductions (2 x 45°: -1d)", length_mm=-2.0 * bend_ded, clause="IS 2502"),
-        ],
+        shape_description="Inclined waist bottom bar continuing with development anchorage into supports/landings",
+        breakdown=main_breakdown,
     ))
 
-    # 2. Top Extra / Negative Junction Bars at Waist-Landing Interface
-    junction_top_waist_mm = 0.3 * inclined_flight_mm
-    junction_top_landing_mm = Ld
-    junction_cut_mm = junction_top_waist_mm + junction_top_landing_mm - bend_ded
-    junc_m = round(junction_cut_mm / 1000.0, 3)
-    # 2 junctions (top landing and bottom landing)
-    num_junction_bars = num_main_bars * 2
-    total_junc_m = round(junc_m * num_junction_bars, 3)
+    # 2. Top Extra / Negative Junction Bars at Waist-Landing Interface (if landings present)
+    num_active_junctions = (1 if bottom_has_landing else 0) + (1 if top_has_landing else 0)
+    if num_active_junctions > 0:
+        junction_top_waist_mm = round(0.3 * inclined_flight_mm, 1)
+        junction_top_landing_mm = round(Ld, 1)
+        junction_cut_mm = round(junction_top_waist_mm + junction_top_landing_mm - bend_ded, 1)
+        junc_m = round(junction_cut_mm / 1000.0, 3)
+        num_junction_bars = num_main_bars * num_active_junctions
+        total_junc_m = round(junc_m * num_junction_bars, 3)
 
-    items.append(BBSItem(
-        bar_mark="Top Negative Junction Extra Bars",
-        bar_type="top_extra",
-        bar_diameter_mm=main_dia,
-        num_bars=num_junction_bars,
-        spacing_mm=main_spacing,
-        cutting_length_mm=junction_cut_mm,
-        cutting_length_m=junc_m,
-        total_length_m=total_junc_m,
-        unit_weight_kg_m=unit_wt_main,
-        total_weight_kg=round(unit_wt_main * total_junc_m, 2),
-        shape_description="Negative moment hogging bar at waist-landing junction (0.3L_flight + Ld)",
-        breakdown=[
-            CalculationBreakdown(label="Waist slab extension (0.3 * L_flight)", length_mm=junction_top_waist_mm, clause="SP 34 Cl. 10.3"),
-            CalculationBreakdown(label="Landing anchorage embedment (Ld)", length_mm=junction_top_landing_mm, clause="IS 456 Cl. 26.2.1"),
-            CalculationBreakdown(label="Bend deduction (1 x 45°)", length_mm=-bend_ded, clause="IS 2502"),
-        ],
-    ))
+        items.append(BBSItem(
+            bar_mark="Top Negative Junction Extra Bars",
+            bar_type="top_extra",
+            bar_diameter_mm=main_dia,
+            num_bars=num_junction_bars,
+            spacing_mm=main_spacing,
+            cutting_length_mm=junction_cut_mm,
+            cutting_length_m=junc_m,
+            total_length_m=total_junc_m,
+            unit_weight_kg_m=unit_wt_main,
+            total_weight_kg=round(unit_wt_main * total_junc_m, 2),
+            shape_description="Negative moment hogging bar at waist-landing junction (0.3L_flight + Ld)",
+            breakdown=[
+                CalculationBreakdown(
+                    label="Waist slab extension (0.3 * L_flight)",
+                    length_mm=junction_top_waist_mm,
+                    clause="SP 34 Cl. 10.3",
+                    formula=f"0.3 × {inclined_flight_mm:.1f} mm = {junction_top_waist_mm:.1f} mm",
+                    explanation="SP 34 Cl. 10.3 negative moment curtailment: bar extends 0.3 * flight length into waist slab.",
+                ),
+                CalculationBreakdown(
+                    label="Landing anchorage embedment (Ld)",
+                    length_mm=junction_top_landing_mm,
+                    clause="IS 456 Cl. 26.2.1",
+                    formula=f"Full tension Ld = {junction_top_landing_mm:.1f} mm",
+                    explanation="IS 456 Cl. 26.2.1 tension development anchorage into landing compression zone.",
+                ),
+                CalculationBreakdown(
+                    label="Bend deduction (1 x 45°)",
+                    length_mm=-bend_ded,
+                    clause="IS 2502",
+                    formula=f"-1.0 × {main_dia:.0f} mm = {-bend_ded:.1f} mm",
+                    explanation="IS 2502 bend deduction of 1d for 45° bend.",
+                ),
+            ],
+        ))
 
     # 3. Transverse Distribution Bars (across waist flight and landings)
-    dist_cut_mm = width - (2.0 * cover)
+    dist_cut_mm = round(width - (2.0 * cover), 1)
     dist_m = round(dist_cut_mm / 1000.0, 3)
     num_dist_flight = int(math.floor(inclined_flight_mm / dist_spacing)) + 1
-    num_dist_bot_land = int(math.floor(request.bottom_landing_length_mm / dist_spacing)) + 1
-    num_dist_top_land = int(math.floor(request.top_landing_length_mm / dist_spacing)) + 1
+    num_dist_bot_land = int(math.floor(request.bottom_landing_length_mm / dist_spacing)) + 1 if bottom_has_landing else 0
+    num_dist_top_land = int(math.floor(request.top_landing_length_mm / dist_spacing)) + 1 if top_has_landing else 0
     total_dist_bars = num_dist_flight + num_dist_bot_land + num_dist_top_land
     total_dist_m = round(dist_m * total_dist_bars, 3)
     unit_wt_dist = round((dist_dia ** 2) / 162.0, 3)
@@ -164,7 +241,13 @@ def calculate_staircase_bbs(request: StaircaseScheduleRequest) -> BBSCalculation
         total_weight_kg=round(unit_wt_dist * total_dist_m, 2),
         shape_description="Straight transverse distribution bars across stair width",
         breakdown=[
-            CalculationBreakdown(label="Flight width minus side covers", length_mm=dist_cut_mm, clause="IS 456 Cl. 26.5.2.1"),
+            CalculationBreakdown(
+                label="Flight width minus side covers",
+                length_mm=dist_cut_mm,
+                clause="IS 456 Cl. 26.5.2.1",
+                formula=f"Width {width:.0f} - 2×{cover:.0f} cover = {dist_cut_mm:.1f} mm",
+                explanation=f"Straight transverse distribution bars across stair flight width per IS 456 Cl. 26.5.2.1 ({total_dist_bars} bars total).",
+            ),
         ],
     ))
 
@@ -174,7 +257,8 @@ def calculate_staircase_bbs(request: StaircaseScheduleRequest) -> BBSCalculation
     from app.engineering.calculators.concrete import calculate_concrete_materials, DRY_VOLUME_FACTOR
     v_waist = (inclined_flight_mm * width * request.waist_slab_thickness_mm) / 1e9
     v_steps = (num_t * 0.5 * R * T * width) / 1e9
-    v_landings = ((request.bottom_landing_length_mm + request.top_landing_length_mm) * width * request.waist_slab_thickness_mm) / 1e9
+    landings_len = (request.bottom_landing_length_mm if bottom_has_landing else 0.0) + (request.top_landing_length_mm if top_has_landing else 0.0)
+    v_landings = (landings_len * width * request.waist_slab_thickness_mm) / 1e9
     vol_m3 = round(v_waist + v_steps + v_landings, 4)
     mat = calculate_concrete_materials(vol_m3, request.concrete_grade)
 

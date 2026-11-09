@@ -361,16 +361,42 @@ def regex_extract_drawing_dimensions(
 
     elif member_type == "staircase":
         risers_match = re.search(r"(\d+)\s*risers?\s*@\s*(\d+)\s*mm", text, re.IGNORECASE)
-        treads_match = re.search(r"(\d+)\s*treads?\s*@\s*(\d+)\s*mm", text, re.IGNORECASE)
-        width_match = re.search(r"(?:flight\s*width|stair\s*width|width)\s*(?:is|=|:)?\s*(\d{3,5})\s*mm", text, re.IGNORECASE)
+        treads_match = re.search(r"(\d+)\s*(?:treads?|goings?)\s*@\s*(\d+)\s*mm", text, re.IGNORECASE)
+        width_match = re.search(r"(?:flight\s*width|stair\s*width|width)\s*(?:is|=|:)?\s*(\d{1,2}[,\.]?\d{3}|\d{3,5})\s*mm", text, re.IGNORECASE)
         waist_match = re.search(r"(?:waist(?:\s*slab)?(?:\s*thickness)?)\s*(?:is|=|:)?\s*(\d{2,4})\s*mm", text, re.IGNORECASE)
+        cover_match = re.search(r"(?:nominal\s*cover|clear\s*cover|cover)\s*(?:is|=|:)?\s*(\d{1,3})\s*mm", text, re.IGNORECASE)
 
         num_r = int(risers_match.group(1)) if risers_match else None
         r_mm = float(risers_match.group(2)) if risers_match else None
         num_t = int(treads_match.group(1)) if treads_match else None
         t_mm = float(treads_match.group(2)) if treads_match else None
-        f_width = float(width_match.group(1)) if width_match else 1200.0
+
+        # Fallback to tabular "Number of risers", "Total vertical rise", etc.
+        if not num_r:
+            num_r_m = re.search(r"(?:number\s*of\s*risers)\s*[:=]?\s*(\d+)", text, re.IGNORECASE)
+            if num_r_m:
+                num_r = int(num_r_m.group(1))
+        if not r_mm:
+            r_m = re.search(r"(\d+)\s*mm\s*per\s*riser", text, re.IGNORECASE)
+            if r_m:
+                r_mm = float(r_m.group(1))
+        if not num_t:
+            num_t_m = re.search(r"(?:number\s*of\s*(?:goings?|treads?)(?:\s*used)?)\s*[:=]?\s*(\d+)", text, re.IGNORECASE)
+            if num_t_m:
+                num_t = int(num_t_m.group(1))
+        if not t_mm:
+            t_m = re.search(r"(\d+)\s*mm\s*per\s*going", text, re.IGNORECASE)
+            if t_m:
+                t_mm = float(t_m.group(1))
+
+        if width_match:
+            raw_w = width_match.group(1).replace(",", "")
+            f_width = float(raw_w)
+        else:
+            f_width = 1200.0
+
         waist_th = float(waist_match.group(1)) if waist_match else 150.0
+        cov = float(cover_match.group(1)) if cover_match else 20.0
 
         if not num_r:
             missing.append("num_risers")
@@ -381,9 +407,17 @@ def regex_extract_drawing_dimensions(
         if not t_mm:
             missing.append("tread_mm")
 
-        rebar_match = re.search(r"(?:main(?:\s*rebar)?)\s*[:=]?\s*(?:Y|T|TOR|#|dia|Ø)?\s*(\d+)\s*(?:@|at)\s*(\d+)", text, re.IGNORECASE)
+        rebar_match = re.search(r"(?:main(?:\s*reinforcement|\s*rebar)?)\s*[:=]?\s*(?:Y|T|TOR|#|dia|Ø)?\s*(\d+)\s*(?:mm)?\s*(?:diameter|dia)?\s*(?:@|at)\s*(\d+)", text, re.IGNORECASE)
         m_dia = float(rebar_match.group(1)) if rebar_match else 12.0
         m_sp = float(rebar_match.group(2)) if rebar_match else 150.0
+
+        dist_rebar_match = re.search(r"(?:distribution(?:\s*reinforcement|\s*rebar)?)\s*[:=]?\s*(?:Y|T|TOR|#|dia|Ø)?\s*(\d+)\s*(?:mm)?\s*(?:diameter|dia)?\s*(?:@|at)\s*(\d+)", text, re.IGNORECASE)
+        d_dia = float(dist_rebar_match.group(1)) if dist_rebar_match else 8.0
+        d_sp = float(dist_rebar_match.group(2)) if dist_rebar_match else 175.0
+
+        landings_excluded = bool(re.search(r"landings?\s*[:=]?\s*excluded|no\s*landings?|without\s*landings?", text, re.IGNORECASE))
+        bot_land = 0.0 if landings_excluded else 1200.0
+        top_land = 0.0 if landings_excluded else 1200.0
 
         if num_r and r_mm and num_t and t_mm:
             stair_req = StaircaseScheduleRequest(
@@ -394,13 +428,13 @@ def regex_extract_drawing_dimensions(
                 tread_mm=t_mm,
                 num_risers=num_r,
                 num_treads=num_t,
-                bottom_landing_length_mm=1200.0,
-                top_landing_length_mm=1200.0,
+                bottom_landing_length_mm=bot_land,
+                top_landing_length_mm=top_land,
                 main_bar_dia_mm=m_dia,
                 main_bar_spacing_mm=m_sp,
-                dist_bar_dia_mm=8.0,
-                dist_bar_spacing_mm=175.0,
-                clear_cover_mm=20.0,
+                dist_bar_dia_mm=d_dia,
+                dist_bar_spacing_mm=d_sp,
+                clear_cover_mm=cov,
                 concrete_grade=concrete_grade,
                 steel_grade=steel_grade,
                 source_references=citations_list,
