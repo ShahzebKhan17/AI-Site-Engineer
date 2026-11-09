@@ -91,9 +91,27 @@ def calculate_slab_bbs(request: SlabScheduleRequest) -> BBSCalculationResult:
 
         # Straight Bottom Bars
         straight_breakdown = [
-            CalculationBreakdown(label="Clear span (Lx)", length_mm=lx, clause="Drawing dimensions"),
-            CalculationBreakdown(label="Left support bearing", length_mm=straight_bearing, clause="SP 34 Cl. 4.1"),
-            CalculationBreakdown(label="Right support bearing", length_mm=straight_bearing, clause="SP 34 Cl. 4.1"),
+            CalculationBreakdown(
+                label="Clear span (Lx)",
+                length_mm=lx,
+                clause="Drawing dimensions",
+                formula=f"Lx = {lx:.1f} mm",
+                explanation="Clear distance between internal faces of supporting walls or beams.",
+            ),
+            CalculationBreakdown(
+                label="Left support bearing",
+                length_mm=straight_bearing,
+                clause="SP 34 Cl. 4.1",
+                formula=f"min(Support {bearing:.0f} - {cover:.0f} cover, Ld/3 = {ld_res.development_length_mm:.1f}/3) = min({bearing - cover:.1f}, {ld_res.development_length_mm / 3.0:.1f}) = {straight_bearing:.1f} mm",
+                explanation=f"Minimum extension of bottom tension bars into end support per SP 34 Cl. 4.1 & IS 456 Cl. 26.2.3.3 (min Ld/3 = {ld_res.development_length_mm/3:.1f} mm).",
+            ),
+            CalculationBreakdown(
+                label="Right support bearing",
+                length_mm=straight_bearing,
+                clause="SP 34 Cl. 4.1",
+                formula=f"min(Support {bearing:.0f} - {cover:.0f} cover, Ld/3 = {ld_res.development_length_mm:.1f}/3) = min({bearing - cover:.1f}, {ld_res.development_length_mm / 3.0:.1f}) = {straight_bearing:.1f} mm",
+                explanation=f"Minimum extension of bottom tension bars into end support per SP 34 Cl. 4.1 & IS 456 Cl. 26.2.3.3 (min Ld/3 = {ld_res.development_length_mm/3:.1f} mm).",
+            ),
         ]
         unit_wt_main = round((main_dia ** 2) / 162.0, 3)
         straight_m = round(straight_cutting_lx / 1000.0, 3)
@@ -115,15 +133,47 @@ def calculate_slab_bbs(request: SlabScheduleRequest) -> BBSCalculationResult:
 
         # Cranked Bars (Bent up at 0.15 Lx with 4 x 45° bends)
         crank_breakdown = [
-            CalculationBreakdown(label="Clear span (Lx)", length_mm=lx, clause="Drawing dimensions"),
-            CalculationBreakdown(label="Left support bearing", length_mm=straight_bearing, clause="SP 34 Cl. 4.1"),
-            CalculationBreakdown(label="Right support bearing", length_mm=straight_bearing, clause="SP 34 Cl. 4.1"),
-            CalculationBreakdown(label="Crank additions (2 x 0.42*d)", length_mm=2.0 * crank_additional, clause="SP 34 Cl. 4.1.3"),
+            CalculationBreakdown(
+                label="Clear span (Lx)",
+                length_mm=lx,
+                clause="Drawing dimensions",
+                formula=f"Lx = {lx:.1f} mm",
+                explanation="Clear distance between internal faces of supporting walls or beams.",
+            ),
+            CalculationBreakdown(
+                label="Left support bearing",
+                length_mm=straight_bearing,
+                clause="SP 34 Cl. 4.1",
+                formula=f"min(Support {bearing:.0f} - {cover:.0f} cover, Ld/3 = {ld_res.development_length_mm:.1f}/3) = min({bearing - cover:.1f}, {ld_res.development_length_mm / 3.0:.1f}) = {straight_bearing:.1f} mm",
+                explanation=f"Minimum extension of bottom tension bars into end support per SP 34 Cl. 4.1 & IS 456 Cl. 26.2.3.3 (min Ld/3 = {ld_res.development_length_mm/3:.1f} mm).",
+            ),
+            CalculationBreakdown(
+                label="Right support bearing",
+                length_mm=straight_bearing,
+                clause="SP 34 Cl. 4.1",
+                formula=f"min(Support {bearing:.0f} - {cover:.0f} cover, Ld/3 = {ld_res.development_length_mm:.1f}/3) = min({bearing - cover:.1f}, {ld_res.development_length_mm / 3.0:.1f}) = {straight_bearing:.1f} mm",
+                explanation=f"Minimum extension of bottom tension bars into end support per SP 34 Cl. 4.1 & IS 456 Cl. 26.2.3.3 (min Ld/3 = {ld_res.development_length_mm/3:.1f} mm).",
+            ),
+            CalculationBreakdown(
+                label="Crank additions (2 x 0.42*d)",
+                length_mm=2.0 * crank_additional,
+                clause="SP 34 Cl. 4.1.3",
+                formula=f"2 × 0.42 × d_eff = 2 × 0.42 × (D {D:.0f} - 2×{cover:.0f} cover - {main_dia:.0f} dia) = 2 × 0.42 × {d_eff:.1f} = {2.0 * crank_additional:.1f} mm",
+                explanation="Additional slope length for 45° crank bent up at 0.15·Lx to resist hogging negative moment per SP 34 Cl. 4.1.3.",
+            ),
         ]
         bend_ded_45 = calculate_bend_deduction(main_dia, 45.0).deduction_mm if request.deduct_bends else 0.0
         total_crank_ded = 4.0 * bend_ded_45
         if request.deduct_bends:
-            crank_breakdown.append(CalculationBreakdown(label="Bend deductions (4 x 45°: -1d each)", length_mm=-total_crank_ded, clause="IS 2502 / SP 34"))
+            crank_breakdown.append(
+                CalculationBreakdown(
+                    label="Bend deductions (4 x 45°: -1d each)",
+                    length_mm=-total_crank_ded,
+                    clause="IS 2502 / SP 34",
+                    formula=f"4 × (-1.0 × {main_dia:.0f} mm) = {-total_crank_ded:.1f} mm",
+                    explanation="IS 2502 / SP 34: 45° bend elongation deduction is 1d per bend (4 bends = -4d).",
+                )
+            )
 
         crank_cutting_lx = straight_cutting_lx + (2.0 * crank_additional) - total_crank_ded
         crank_m = round(crank_cutting_lx / 1000.0, 3)
@@ -159,8 +209,20 @@ def calculate_slab_bbs(request: SlabScheduleRequest) -> BBSCalculationResult:
             total_weight_kg=round(unit_wt_main * total_straight_m, 2),
             shape_description="Full straight bottom reinforcement across short span",
             breakdown=[
-                CalculationBreakdown(label="Clear span (Lx)", length_mm=lx, clause="Drawing dimensions"),
-                CalculationBreakdown(label="Support bearings", length_mm=2.0 * straight_bearing, clause="SP 34 Cl. 4.1"),
+                CalculationBreakdown(
+                    label="Clear span (Lx)",
+                    length_mm=lx,
+                    clause="Drawing dimensions",
+                    formula=f"Lx = {lx:.1f} mm",
+                    explanation="Clear distance between internal faces of supporting walls or beams.",
+                ),
+                CalculationBreakdown(
+                    label="Support bearings",
+                    length_mm=2.0 * straight_bearing,
+                    clause="SP 34 Cl. 4.1",
+                    formula=f"2 × min(Support {bearing:.0f} - {cover:.0f} cover, Ld/3 = {ld_res.development_length_mm:.1f}/3) = 2 × {straight_bearing:.1f} = {2.0 * straight_bearing:.1f} mm",
+                    explanation=f"Embedment into both simple supports per SP 34 Cl. 4.1 & IS 456 Cl. 26.2.3.3 (min Ld/3 = {ld_res.development_length_mm/3:.1f} mm each).",
+                ),
             ],
         ))
 
@@ -185,8 +247,20 @@ def calculate_slab_bbs(request: SlabScheduleRequest) -> BBSCalculationResult:
         total_weight_kg=round(unit_wt_dist * total_dist_m, 2),
         shape_description="Transverse distribution bars tied over main reinforcement",
         breakdown=[
-            CalculationBreakdown(label="Clear span (Ly)", length_mm=ly, clause="Drawing dimensions"),
-            CalculationBreakdown(label="Support bearings", length_mm=2.0 * dist_bearing, clause="IS 456 Cl. 26.5.2.1"),
+            CalculationBreakdown(
+                label="Clear span (Ly)",
+                length_mm=ly,
+                clause="Drawing dimensions",
+                formula=f"Ly = {ly:.1f} mm",
+                explanation="Clear long span distance across which distribution rebar extends.",
+            ),
+            CalculationBreakdown(
+                label="Support bearings",
+                length_mm=2.0 * dist_bearing,
+                clause="IS 456 Cl. 26.5.2.1",
+                formula=f"2 × min(Support {bearing:.0f} - {cover:.0f} cover, Ld/3 = {ld_res.development_length_mm:.1f}/3) = 2 × {dist_bearing:.1f} = {2.0 * dist_bearing:.1f} mm",
+                explanation="Transverse secondary reinforcement end embedments into supports per IS 456 Cl. 26.5.2.1.",
+            ),
         ],
     ))
 
@@ -211,9 +285,27 @@ def calculate_slab_bbs(request: SlabScheduleRequest) -> BBSCalculationResult:
         total_weight_kg=round(unit_wt_chair * total_chair_m, 2),
         shape_description="Four-legged spacer chair maintaining top crank elevation",
         breakdown=[
-            CalculationBreakdown(label="Chair top crown", length_mm=200.0, clause="Site practice"),
-            CalculationBreakdown(label="Chair vertical legs (2x)", length_mm=2.0 * chair_height, clause="D - 2*cover - 2*phi"),
-            CalculationBreakdown(label="Base resting feet (2x150mm)", length_mm=300.0, clause="SP 34 Cl. 4.2"),
+            CalculationBreakdown(
+                label="Chair top crown",
+                length_mm=200.0,
+                clause="Site practice",
+                formula="Top horizontal crown width = 200.0 mm",
+                explanation="Stable horizontal platform resting beneath top cranked reinforcement mesh.",
+            ),
+            CalculationBreakdown(
+                label="Chair vertical legs (2x)",
+                length_mm=2.0 * chair_height,
+                clause="D - 2*cover - 2*phi",
+                formula=f"2 × (D {D:.0f} - 2×{cover:.0f} cover - 2×{main_dia:.0f} dia) = 2 × {chair_height:.1f} = {2.0 * chair_height:.1f} mm",
+                explanation="Vertical spacer height maintaining correct effective depth and top cover against concrete pouring.",
+            ),
+            CalculationBreakdown(
+                label="Base resting feet (2x150mm)",
+                length_mm=300.0,
+                clause="SP 34 Cl. 4.2",
+                formula="2 × 150.0 mm = 300.0 mm",
+                explanation="Bottom horizontal feet tied securely over lower reinforcement grid per SP 34 Cl. 4.2.",
+            ),
         ],
     ))
 

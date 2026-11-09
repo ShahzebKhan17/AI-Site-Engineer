@@ -73,17 +73,63 @@ def calculate_longitudinal_bar(request: ColumnBarRequest) -> ColumnBarResult:
         ]
 
     breakdown = [
-        CalculationBreakdown(label="Storey height", length_mm=request.storey_height_mm),
+        CalculationBreakdown(
+            label="Storey height",
+            length_mm=request.storey_height_mm,
+            clause="Drawing schedule",
+            formula=f"H_storey = {request.storey_height_mm:.1f} mm",
+            explanation="Clear vertical floor-to-floor storey height.",
+        ),
     ]
     if request.footing_embedment_mm > 0:
-        breakdown.append(CalculationBreakdown(label="Footing embedment", length_mm=request.footing_embedment_mm))
-    breakdown.append(CalculationBreakdown(label="Top extension", length_mm=request.top_extension_mm))
+        breakdown.append(
+            CalculationBreakdown(
+                label="Footing embedment",
+                length_mm=request.footing_embedment_mm,
+                clause="SP 34 Cl. 7.1",
+                formula=f"Starter embedment = {request.footing_embedment_mm:.1f} mm",
+                explanation="Dowelled starter bar development length into foundation footing mass.",
+            )
+        )
+    breakdown.append(
+        CalculationBreakdown(
+            label="Top extension",
+            length_mm=request.top_extension_mm,
+            clause="SP 34 Cl. 7.1",
+            formula=f"Extension = {request.top_extension_mm:.1f} mm",
+            explanation="Upward starter extension through floor slab to form lap joint with column above.",
+        )
+    )
     if bend_allowance_mm > 0:
-        breakdown.append(CalculationBreakdown(label="Bend allowance", length_mm=bend_allowance_mm))
+        breakdown.append(
+            CalculationBreakdown(
+                label="Bend allowance",
+                length_mm=bend_allowance_mm,
+                clause="IS 456 Cl. 26.2.2",
+                formula=f"Footing hook leg = {bend_allowance_mm:.1f} mm",
+                explanation="Horizontal 90° leg resting over footing reinforcement mat (min 300 mm or 16d).",
+            )
+        )
     if lap_length_mm > 0:
-        breakdown.append(CalculationBreakdown(label="Lap length", length_mm=lap_length_mm))
+        breakdown.append(
+            CalculationBreakdown(
+                label="Lap length",
+                length_mm=lap_length_mm,
+                clause="IS 456 Cl. 26.2.5.1",
+                formula=f"Lap splice = {lap_length_mm:.1f} mm",
+                explanation="Tension/compression lap splice length for longitudinal column rebar continuity.",
+            )
+        )
     if bend_deduction_mm > 0:
-        breakdown.append(CalculationBreakdown(label="Bend deduction (90 deg)", length_mm=-bend_deduction_mm))
+        breakdown.append(
+            CalculationBreakdown(
+                label="Bend deduction (90 deg)",
+                length_mm=-bend_deduction_mm,
+                clause="IS 2502 / SP 34",
+                formula=f"-2.0 × {request.bar_diameter_mm:.0f} mm = {-bend_deduction_mm:.1f} mm",
+                explanation="Elongation deduction of 2d for 90° footing bend.",
+            )
+        )
 
     total = sum(item.length_mm for item in breakdown)
     c_vol = round((request.column_width_mm * request.column_depth_mm * request.storey_height_mm) / 1e9, 4) if (request.column_width_mm and request.column_depth_mm) else 0.0
@@ -132,11 +178,31 @@ def calculate_longitudinal_bar(request: ColumnBarRequest) -> ColumnBarResult:
     tie_m = round(tie_cut_mm / 1000.0, 3)
 
     tie_breakdown = [
-        CalculationBreakdown(label="Core perimeter (2*(w+d))", length_mm=round(2.0 * (w_core + d_core), 1), clause="IS 456 Cl. 26.5.3"),
-        CalculationBreakdown(label="Seismic 135° hook extensions (2 x 10d)", length_mm=round(hook_ext, 1), clause="SP 34 Cl. 7.2"),
+        CalculationBreakdown(
+            label="Core perimeter (2*(w+d))",
+            length_mm=round(2.0 * (w_core + d_core), 1),
+            clause="IS 456 Cl. 26.5.3",
+            formula=f"2 × (Width {col_w:.0f} - 2×{cover:.0f} + Depth {col_d:.0f} - 2×{cover:.0f}) = 2 × ({w_core:.0f} + {d_core:.0f}) = {2.0 * (w_core + d_core):.1f} mm",
+            explanation="Core perimeter enclosing column longitudinal reinforcement cage.",
+        ),
+        CalculationBreakdown(
+            label="Seismic 135° hook extensions (2 x 10d)",
+            length_mm=round(hook_ext, 1),
+            clause="SP 34 Cl. 7.2",
+            formula=f"2 × (10 × {tie_dia:.0f} mm) = {hook_ext:.1f} mm",
+            explanation="Ductile 135° seismic hook anchorages embedded into column concrete core.",
+        ),
     ]
     if total_ded > 0:
-        tie_breakdown.append(CalculationBreakdown(label="Bend deductions (3x90° + 2x135°)", length_mm=-round(total_ded, 1), clause="IS 2502"))
+        tie_breakdown.append(
+            CalculationBreakdown(
+                label="Bend deductions (3x90° + 2x135°)",
+                length_mm=-round(total_ded, 1),
+                clause="IS 2502",
+                formula=f"(3 × -2×{tie_dia:.0f}) + (2 × -3×{tie_dia:.0f}) = {-total_ded:.1f} mm",
+                explanation="Elongation deductions per IS 2502: 3 corners at 90° (-2d) and 2 hooks at 135° (-3d).",
+            )
+        )
 
     if request.use_is_code_rules:
         if has_dual_zone:

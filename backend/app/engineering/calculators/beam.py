@@ -132,10 +132,34 @@ class BeamBarResult(BaseModel):
             s_total_wt = round(s_unit_wt * s_total_len, 2)
 
             stirrup_breakdown = [
-                CalculationBreakdown(label=f"Core width (2 x {core_w:.0f} mm)", length_mm=2.0 * core_w, clause="IS 456 Cl. 26.4.2.1"),
-                CalculationBreakdown(label=f"Core depth (2 x {core_d:.0f} mm)", length_mm=2.0 * core_d, clause="IS 456 Cl. 26.4.2.1"),
-                CalculationBreakdown(label=f"Two 135° seismic hooks (2 x 10d = {hook_ext:.0f} mm)", length_mm=hook_ext, clause="IS 456 Cl. 26.2.2.4"),
-                CalculationBreakdown(label="Bend deductions (3x 90° + 2x 135° bends)", length_mm=-total_ded, clause="SP 34 Cl. 3.2"),
+                CalculationBreakdown(
+                    label=f"Core width (2 x {core_w:.0f} mm)",
+                    length_mm=2.0 * core_w,
+                    clause="IS 456 Cl. 26.4.2.1",
+                    formula=f"2 × (Width {w:.0f} - 2×{clear_cover_mm:.0f} cover) = 2 × {core_w:.0f} = {2.0 * core_w:.1f} mm",
+                    explanation="Horizontal stirrup legs bounding beam core concrete per IS 456 Cl. 26.4.2.1.",
+                ),
+                CalculationBreakdown(
+                    label=f"Core depth (2 x {core_d:.0f} mm)",
+                    length_mm=2.0 * core_d,
+                    clause="IS 456 Cl. 26.4.2.1",
+                    formula=f"2 × (Depth {d:.0f} - 2×{clear_cover_mm:.0f} cover) = 2 × {core_d:.0f} = {2.0 * core_d:.1f} mm",
+                    explanation="Vertical shear legs resisting diagonal web tension per IS 456 Cl. 26.4.2.1.",
+                ),
+                CalculationBreakdown(
+                    label=f"Two 135° seismic hooks (2 x 10d = {hook_ext:.0f} mm)",
+                    length_mm=hook_ext,
+                    clause="IS 456 Cl. 26.2.2.4",
+                    formula=f"2 × (10 × {stirrup_dia_mm:.0f} mm) = {hook_ext:.1f} mm",
+                    explanation="Ductile seismic 135° anchor hooks per IS 456 Cl. 26.2.2.4 & IS 13920 Cl. 6.2.",
+                ),
+                CalculationBreakdown(
+                    label="Bend deductions (3x 90° + 2x 135° bends)",
+                    length_mm=-total_ded,
+                    clause="SP 34 Cl. 3.2",
+                    formula=f"(3 × -2×{stirrup_dia_mm:.0f}) + (2 × -3×{stirrup_dia_mm:.0f}) = {-total_ded:.1f} mm",
+                    explanation="IS 2502 elongation deductions: -2d for 90° corners, -3d for 135° seismic hooks.",
+                ),
             ]
 
             stirrup_item = BBSItem(
@@ -223,18 +247,36 @@ def calculate_beam_bar_length(request: BeamBarRequest) -> BeamBarResult:
         straight_embed_left = max(0.0, request.left_support_width_mm - cover_col)
         anchorage_into_support = round(min(ld_mm, straight_embed_left + hook_leg), 1)
 
-        breakdown.append(CalculationBreakdown(label="Curtailed span projection (0.25 * L)", length_mm=curtailed_extent, clause="SP 34 Cl. 4.1"))
+        breakdown.append(
+            CalculationBreakdown(
+                label="Curtailed span projection (0.25 * L)",
+                length_mm=curtailed_extent,
+                clause="SP 34 Cl. 4.1",
+                formula=f"0.25 × {request.clear_span_mm:.1f} = {curtailed_extent:.1f} mm",
+                explanation="Curtailment cutoff point for top hogging negative moment reinforcement per SP 34 Cl. 4.1.",
+            )
+        )
         breakdown.append(
             CalculationBreakdown(
                 label=f"Support anchorage (90° hook: [{request.left_support_width_mm:.0f} - {cover_col:.0f} col cover] + 12d leg [{hook_leg:.0f} mm])",
                 length_mm=anchorage_into_support,
                 clause="IS 456 Cl. 26.2.3.3",
+                formula=f"min(Ld {ld_mm:.1f}, (Support {request.left_support_width_mm:.0f} - {cover_col:.0f} cover) + 12d leg {hook_leg:.0f}) = min({ld_mm:.1f}, {straight_embed_left + hook_leg:.1f}) = {anchorage_into_support:.1f} mm",
+                explanation="Anchorage of top negative bars into column support core with standard 90° hook per IS 456 Cl. 26.2.3.3.",
             )
         )
 
         if request.deduct_bends:
             ded = calculate_bend_deduction(request.bar_diameter_mm, 90.0).deduction_mm
-            breakdown.append(CalculationBreakdown(label="Bend deduction (90 deg: -2d)", length_mm=-ded, clause="SP 34 Cl. 3.2"))
+            breakdown.append(
+                CalculationBreakdown(
+                    label="Bend deduction (90 deg: -2d)",
+                    length_mm=-ded,
+                    clause="SP 34 Cl. 3.2",
+                    formula=f"-2.0 × {request.bar_diameter_mm:.0f} mm = {-ded:.1f} mm",
+                    explanation="Elongation deduction for 90° bend (-2d) per SP 34 Cl. 3.2 & IS 2502.",
+                )
+            )
 
         assumptions.append("Top extra rebar curtailed at 0.25 * clear span from support face per SP 34 Cl. 4.1.")
     else:
@@ -244,12 +286,22 @@ def calculate_beam_bar_length(request: BeamBarRequest) -> BeamBarResult:
         anchorage_left = round(min(ld_mm, straight_embed_left + hook_leg), 1)
         anchorage_right = round(min(ld_mm, straight_embed_right + hook_leg), 1)
 
-        breakdown.append(CalculationBreakdown(label="Clear span length", length_mm=request.clear_span_mm, clause="Drawing Detail"))
+        breakdown.append(
+            CalculationBreakdown(
+                label="Clear span length",
+                length_mm=request.clear_span_mm,
+                clause="Drawing Detail",
+                formula=f"Clear span = {request.clear_span_mm:.1f} mm",
+                explanation="Clear face-to-face distance between supporting column surfaces.",
+            )
+        )
         breakdown.append(
             CalculationBreakdown(
                 label=f"Left support anchorage (90° hook: [{request.left_support_width_mm:.0f} - {cover_col:.0f} col cover] + 12d leg [{hook_leg:.0f} mm])",
                 length_mm=anchorage_left,
                 clause="IS 456 Cl. 26.2.3.3",
+                formula=f"min(Ld {ld_mm:.1f}, (Col {request.left_support_width_mm:.0f} - {cover_col:.0f} cover) + 12d leg {hook_leg:.0f}) = min({ld_mm:.1f}, {straight_embed_left + hook_leg:.1f}) = {anchorage_left:.1f} mm",
+                explanation="Full anchorage development into left column support per IS 456 Cl. 26.2.3.3.",
             )
         )
         breakdown.append(
@@ -257,12 +309,22 @@ def calculate_beam_bar_length(request: BeamBarRequest) -> BeamBarResult:
                 label=f"Right support anchorage (90° hook: [{request.right_support_width_mm:.0f} - {cover_col:.0f} col cover] + 12d leg [{hook_leg:.0f} mm])",
                 length_mm=anchorage_right,
                 clause="IS 456 Cl. 26.2.3.3",
+                formula=f"min(Ld {ld_mm:.1f}, (Col {request.right_support_width_mm:.0f} - {cover_col:.0f} cover) + 12d leg {hook_leg:.0f}) = min({ld_mm:.1f}, {straight_embed_right + hook_leg:.1f}) = {anchorage_right:.1f} mm",
+                explanation="Full anchorage development into right column support per IS 456 Cl. 26.2.3.3.",
             )
         )
 
         if request.deduct_bends:
             ded = calculate_bend_deduction(request.bar_diameter_mm, 90.0).deduction_mm * 2.0
-            breakdown.append(CalculationBreakdown(label="Bend deductions (2 x 90 deg: -4d)", length_mm=-ded, clause="SP 34 Cl. 3.2"))
+            breakdown.append(
+                CalculationBreakdown(
+                    label="Bend deductions (2 x 90 deg: -4d)",
+                    length_mm=-ded,
+                    clause="SP 34 Cl. 3.2",
+                    formula=f"2 × (-2.0 × {request.bar_diameter_mm:.0f} mm) = {-ded:.1f} mm",
+                    explanation="Bend deduction of 2d per 90° hook bend per SP 34 Cl. 3.2 & IS 2502.",
+                )
+            )
 
         assumptions.append(
             f"Support anchorage = (Supporting column width {request.left_support_width_mm:.0f} mm - 40 mm end cover) + (12 * bar_dia {request.bar_diameter_mm:.0f} mm vertical bend leg) = {straight_embed_left:.0f} + {hook_leg:.0f} = {anchorage_left:.1f} mm per IS 456 Cl. 26.2.3.3."
@@ -327,18 +389,34 @@ def calculate_beam_bbs(request: BeamScheduleRequest) -> BBSCalculationResult:
     b_ded = calculate_bend_deduction(b_dia, 90.0).deduction_mm * 2.0 if request.deduct_bends else 0.0
 
     b_breakdown = [
-        CalculationBreakdown(label="Clear span length", length_mm=request.clear_span_mm, clause="Drawing Detail"),
+        CalculationBreakdown(
+            label="Clear span length",
+            length_mm=request.clear_span_mm,
+            clause="Drawing Detail",
+            formula=f"Clear span = {request.clear_span_mm:.1f} mm",
+            explanation="Clear distance between internal column faces.",
+        ),
         CalculationBreakdown(
             label=f"Left support anchorage (90° hook: [{request.left_support_width_mm:.0f} - {cover_col:.0f} col cover] + 12d leg [{b_hook_leg:.0f} mm])",
             length_mm=b_anchor_left,
             clause="IS 456 Cl. 26.2.3.3",
+            formula=f"min(Ld {ld_bottom.development_length_mm:.1f}, (Col {request.left_support_width_mm:.0f} - {cover_col:.0f} cover) + 12d leg {b_hook_leg:.0f}) = min({ld_bottom.development_length_mm:.1f}, {b_straight_left + b_hook_leg:.1f}) = {b_anchor_left:.1f} mm",
+            explanation="Bottom bar tension development into left column support per IS 456 Cl. 26.2.3.3.",
         ),
         CalculationBreakdown(
             label=f"Right support anchorage (90° hook: [{request.right_support_width_mm:.0f} - {cover_col:.0f} col cover] + 12d leg [{b_hook_leg:.0f} mm])",
             length_mm=b_anchor_right,
             clause="IS 456 Cl. 26.2.3.3",
+            formula=f"min(Ld {ld_bottom.development_length_mm:.1f}, (Col {request.right_support_width_mm:.0f} - {cover_col:.0f} cover) + 12d leg {b_hook_leg:.0f}) = min({ld_bottom.development_length_mm:.1f}, {b_straight_right + b_hook_leg:.1f}) = {b_anchor_right:.1f} mm",
+            explanation="Bottom bar tension development into right column support per IS 456 Cl. 26.2.3.3.",
         ),
-        CalculationBreakdown(label="Bend deductions (2 x 90 deg: -4d)", length_mm=-b_ded, clause="SP 34 Cl. 3.2"),
+        CalculationBreakdown(
+            label="Bend deductions (2 x 90 deg: -4d)",
+            length_mm=-b_ded,
+            clause="SP 34 Cl. 3.2",
+            formula=f"2 × (-2.0 × {b_dia:.0f} mm) = {-b_ded:.1f} mm",
+            explanation="IS 2502 & SP 34: 90° bend elongation deduction is 2d per bend (2 bends = -4d).",
+        ),
     ]
     b_cut_mm = round(sum(row.length_mm for row in b_breakdown), 1)
     b_cut_m = round(b_cut_mm / 1000.0, 3)
@@ -384,18 +462,34 @@ def calculate_beam_bbs(request: BeamScheduleRequest) -> BBSCalculationResult:
         t_ded = calculate_bend_deduction(t_dia, 90.0).deduction_mm * 2.0 if request.deduct_bends else 0.0
 
         t_breakdown = [
-            CalculationBreakdown(label="Clear span length", length_mm=request.clear_span_mm, clause="Drawing Detail"),
+            CalculationBreakdown(
+                label="Clear span length",
+                length_mm=request.clear_span_mm,
+                clause="Drawing Detail",
+                formula=f"Clear span = {request.clear_span_mm:.1f} mm",
+                explanation="Clear distance between internal column faces.",
+            ),
             CalculationBreakdown(
                 label=f"Left support anchorage (90° hook: [{request.left_support_width_mm:.0f} - {cover_col:.0f} col cover] + 12d leg [{t_hook_leg:.0f} mm])",
                 length_mm=t_anchor_left,
                 clause="IS 456 Cl. 26.2.3.3",
+                formula=f"min(Ld {ld_top.development_length_mm:.1f}, (Col {request.left_support_width_mm:.0f} - {cover_col:.0f} cover) + 12d leg {t_hook_leg:.0f}) = min({ld_top.development_length_mm:.1f}, {t_straight_left + t_hook_leg:.1f}) = {t_anchor_left:.1f} mm",
+                explanation="Top compression/hanger bar anchorage development into left column support per IS 456 Cl. 26.2.3.3.",
             ),
             CalculationBreakdown(
                 label=f"Right support anchorage (90° hook: [{request.right_support_width_mm:.0f} - {cover_col:.0f} col cover] + 12d leg [{t_hook_leg:.0f} mm])",
                 length_mm=t_anchor_right,
                 clause="IS 456 Cl. 26.2.3.3",
+                formula=f"min(Ld {ld_top.development_length_mm:.1f}, (Col {request.right_support_width_mm:.0f} - {cover_col:.0f} cover) + 12d leg {t_hook_leg:.0f}) = min({ld_top.development_length_mm:.1f}, {t_straight_right + t_hook_leg:.1f}) = {t_anchor_right:.1f} mm",
+                explanation="Top compression/hanger bar anchorage development into right column support per IS 456 Cl. 26.2.3.3.",
             ),
-            CalculationBreakdown(label="Bend deductions (2 x 90 deg: -4d)", length_mm=-t_ded, clause="SP 34 Cl. 3.2"),
+            CalculationBreakdown(
+                label="Bend deductions (2 x 90 deg: -4d)",
+                length_mm=-t_ded,
+                clause="SP 34 Cl. 3.2",
+                formula=f"2 × (-2.0 × {t_dia:.0f} mm) = {-t_ded:.1f} mm",
+                explanation="IS 2502 & SP 34: 90° bend elongation deduction is 2d per bend (2 bends = -4d).",
+            ),
         ]
         t_cut_mm = round(sum(row.length_mm for row in t_breakdown), 1)
         t_cut_m = round(t_cut_mm / 1000.0, 3)
@@ -436,10 +530,34 @@ def calculate_beam_bbs(request: BeamScheduleRequest) -> BBSCalculationResult:
     s_total_ded = (3.0 * bend_ded_90) + (2.0 * bend_ded_135)
 
     s_breakdown = [
-        CalculationBreakdown(label=f"Core horizontal width (2 x {core_w:.0f} mm)", length_mm=2.0 * core_w, clause="IS 456 Cl. 26.4.2.1"),
-        CalculationBreakdown(label=f"Core vertical depth (2 x {core_d:.0f} mm)", length_mm=2.0 * core_d, clause="IS 456 Cl. 26.4.2.1"),
-        CalculationBreakdown(label=f"Two 135° seismic hooks (2 x 10d = {hook_ext:.0f} mm)", length_mm=hook_ext, clause="IS 456 Cl. 26.2.2.4"),
-        CalculationBreakdown(label="Bend deductions (3x 90° + 2x 135° bends)", length_mm=-s_total_ded, clause="SP 34 Cl. 3.2"),
+        CalculationBreakdown(
+            label=f"Core horizontal width (2 x {core_w:.0f} mm)",
+            length_mm=2.0 * core_w,
+            clause="IS 456 Cl. 26.4.2.1",
+            formula=f"2 × (Beam width {request.beam_width_mm:.0f} - 2×{cov:.0f} cover) = 2 × {core_w:.0f} = {2.0 * core_w:.1f} mm",
+            explanation="Horizontal stirrup legs bounding beam core concrete per IS 456 Cl. 26.4.2.1.",
+        ),
+        CalculationBreakdown(
+            label=f"Core vertical depth (2 x {core_d:.0f} mm)",
+            length_mm=2.0 * core_d,
+            clause="IS 456 Cl. 26.4.2.1",
+            formula=f"2 × (Beam depth {request.beam_depth_mm:.0f} - 2×{cov:.0f} cover) = 2 × {core_d:.0f} = {2.0 * core_d:.1f} mm",
+            explanation="Vertical shear legs resisting diagonal web tension per IS 456 Cl. 26.4.2.1.",
+        ),
+        CalculationBreakdown(
+            label=f"Two 135° seismic hooks (2 x 10d = {hook_ext:.0f} mm)",
+            length_mm=hook_ext,
+            clause="IS 456 Cl. 26.2.2.4",
+            formula=f"2 × (10 × {s_dia:.0f} mm) = {hook_ext:.1f} mm",
+            explanation="Ductile seismic 135° anchor hooks per IS 456 Cl. 26.2.2.4 & IS 13920 Cl. 6.2.",
+        ),
+        CalculationBreakdown(
+            label="Bend deductions (3x 90° + 2x 135° bends)",
+            length_mm=-s_total_ded,
+            clause="SP 34 Cl. 3.2",
+            formula=f"(3 × -2×{s_dia:.0f}) + (2 × -3×{s_dia:.0f}) = {-s_total_ded:.1f} mm",
+            explanation="IS 2502 elongation deductions: -2d for 90° corners, -3d for 135° seismic hooks.",
+        ),
     ]
     s_cut_mm = round(sum(row.length_mm for row in s_breakdown), 1)
     s_cut_m = round(s_cut_mm / 1000.0, 3)

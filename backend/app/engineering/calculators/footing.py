@@ -138,12 +138,38 @@ def calculate_footing_mesh(request: FootingMeshRequest) -> FootingMeshResult:
     total_weight_kg = round(total_length_m * unit_wt, 2)
 
     breakdown = [
-        CalculationBreakdown(label="Straight bottom span", length_mm=straight_long),
-        CalculationBreakdown(label="Left upward vertical leg", length_mm=vert_leg),
-        CalculationBreakdown(label="Right upward vertical leg", length_mm=vert_leg),
+        CalculationBreakdown(
+            label="Straight bottom span",
+            length_mm=straight_long,
+            clause="IS 456 Cl. 26.4.2.2",
+            formula=f"Length {request.length_mm:.0f} - 2×{cover:.0f} cover = {straight_long:.1f} mm",
+            explanation="Clear horizontal distance of bottom mat mesh bar between side concrete covers.",
+        ),
+        CalculationBreakdown(
+            label="Left upward vertical leg",
+            length_mm=vert_leg,
+            clause="SP 34 Cl. 4.2",
+            formula=f"max(Depth {request.depth_mm:.0f} - 2×{cover:.0f} cover, 150) = {vert_leg:.1f} mm",
+            explanation="Vertical 90° anchorage hook leg turned upward into footing compression zone.",
+        ),
+        CalculationBreakdown(
+            label="Right upward vertical leg",
+            length_mm=vert_leg,
+            clause="SP 34 Cl. 4.2",
+            formula=f"max(Depth {request.depth_mm:.0f} - 2×{cover:.0f} cover, 150) = {vert_leg:.1f} mm",
+            explanation="Vertical 90° anchorage hook leg turned upward into footing compression zone.",
+        ),
     ]
     if deduction_mm > 0:
-        breakdown.append(CalculationBreakdown(label="Bend deductions (2 x 90 deg: -4d)", length_mm=-deduction_mm))
+        breakdown.append(
+            CalculationBreakdown(
+                label="Bend deductions (2 x 90 deg: -4d)",
+                length_mm=-deduction_mm,
+                clause="IS 2502 / SP 34",
+                formula=f"2 × (-2.0 × {bar_dia:.0f} mm) = {-deduction_mm:.1f} mm",
+                explanation="Elongation deduction of 2d per 90° bend.",
+            )
+        )
 
     assumptions = [
         f"Footing side and bottom nominal cover = {cover} mm per IS 456:2000 Cl. 26.4.2.2.",

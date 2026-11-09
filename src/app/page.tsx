@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, useEffect, useRef, useState } from "react";
+import { ChangeEvent, Fragment, useEffect, useRef, useState } from "react";
 import { getSupabase } from "@/lib/supabaseClient";
 
 const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -42,6 +42,8 @@ type CalculationRow = {
   label: string;
   length_mm: number;
   clause?: string;
+  formula?: string;
+  explanation?: string;
 };
 
 type BBSItemData = {
@@ -459,6 +461,8 @@ export default function Home() {
 
   // Interactive Derivation Inspector
   const [inspectItem, setInspectItem] = useState<InspectItemData | null>(null);
+  const [expandedInspectRowIdx, setExpandedInspectRowIdx] = useState<number | null>(null);
+  const [expandedActiveRowIdx, setExpandedActiveRowIdx] = useState<number | null>(null);
 
   // Live Q&A, AI Drawing Ingestion & Parameter Review States
   const [uploadedChunks, setUploadedChunks] = useState<any[]>([]);
@@ -1258,9 +1262,14 @@ export default function Home() {
                   </div>
 
                   <div>
-                    <span className="text-xs font-mono text-cyan-300 font-bold uppercase tracking-wider block mb-2">
-                      STEP-BY-STEP ARITHMETIC BREAKDOWN (mm)
-                    </span>
+                    <div className="flex flex-wrap items-center justify-between gap-1 mb-2">
+                      <span className="text-xs font-mono text-cyan-300 font-bold uppercase tracking-wider block">
+                        STEP-BY-STEP ARITHMETIC BREAKDOWN (mm)
+                      </span>
+                      <span className="text-[10px] font-mono text-cyan-400/80">
+                        💡 Click any row to expand calculation
+                      </span>
+                    </div>
                     <div className="w-full overflow-x-auto rounded-xl border border-cyan-500/40 bg-slate-950/90 shadow-xl shadow-black/50">
                       <table className="w-full text-left font-mono text-xs border-collapse">
                         <colgroup>
@@ -1282,23 +1291,78 @@ export default function Home() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800/80">
-                          {inspectItem.breakdown.map((b, idx) => (
-                            <tr key={`insp-row-${idx}`} className="hover:bg-cyan-950/25 transition-colors odd:bg-slate-950/60 even:bg-slate-900/40">
-                              <td className="px-3.5 py-2.5 font-semibold text-slate-100 border-r border-slate-800/60">
-                                {b.label}
-                              </td>
-                              <td className="px-3.5 py-2.5 border-r border-slate-800/60">
-                                <span className="inline-flex items-center px-2 py-0.5 rounded bg-sky-950/80 border border-sky-500/40 text-sky-300 font-mono text-[11px]">
-                                  {b.clause || "Drawing Detail"}
-                                </span>
-                              </td>
-                              <td className="px-3.5 py-2.5 text-right font-bold text-sm">
-                                <span className={b.length_mm < 0 ? "text-rose-400" : "text-emerald-400"}>
-                                  {b.length_mm > 0 ? `+${b.length_mm.toFixed(1)}` : b.length_mm.toFixed(1)}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
+                          {inspectItem.breakdown.map((b, idx) => {
+                            const isExpanded = expandedInspectRowIdx === idx;
+                            return (
+                              <Fragment key={`insp-row-${idx}`}>
+                                <tr
+                                  onClick={() => setExpandedInspectRowIdx(isExpanded ? null : idx)}
+                                  className={`cursor-pointer transition-colors ${
+                                    isExpanded ? "bg-cyan-950/50" : "hover:bg-cyan-950/30 odd:bg-slate-950/60 even:bg-slate-900/40"
+                                  }`}
+                                  title="Click to inspect exact mathematical formula and IS code clause"
+                                >
+                                  <td className="px-3.5 py-2.5 font-semibold text-slate-100 border-r border-slate-800/60">
+                                    <div className="flex items-center gap-2">
+                                      <span className={`text-[10px] text-cyan-400 transition-transform duration-200 inline-block ${isExpanded ? "rotate-90 text-cyan-300" : ""}`}>
+                                        ▶
+                                      </span>
+                                      <span>{b.label}</span>
+                                    </div>
+                                  </td>
+                                  <td className="px-3.5 py-2.5 border-r border-slate-800/60">
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded bg-sky-950/80 border border-sky-500/40 text-sky-300 font-mono text-[11px]">
+                                      {b.clause || "Drawing Detail"}
+                                    </span>
+                                  </td>
+                                  <td className="px-3.5 py-2.5 text-right font-bold text-sm">
+                                    <div className="flex items-center justify-end gap-1.5">
+                                      <span className={b.length_mm < 0 ? "text-rose-400" : "text-emerald-400"}>
+                                        {b.length_mm > 0 ? `+${b.length_mm.toFixed(1)}` : b.length_mm.toFixed(1)}
+                                      </span>
+                                      <span className={`text-[10px] px-1 py-0.5 rounded font-mono border transition ${
+                                        isExpanded
+                                          ? "bg-cyan-500/20 text-cyan-300 border-cyan-400/50"
+                                          : "bg-cyan-950/40 text-cyan-400/70 border-cyan-500/20 hover:text-cyan-300"
+                                      }`}>
+                                        fx
+                                      </span>
+                                    </div>
+                                  </td>
+                                </tr>
+                                {isExpanded && (
+                                  <tr className="bg-slate-900/95 border-b border-cyan-500/30">
+                                    <td colSpan={3} className="p-3.5 bg-gradient-to-r from-cyan-950/40 via-slate-900/90 to-slate-950/95">
+                                      <div className="space-y-2.5 rounded-lg border border-cyan-500/30 bg-black/50 p-3 shadow-inner">
+                                        <div>
+                                          <div className="flex items-center justify-between mb-1">
+                                            <span className="text-[10px] uppercase font-mono text-cyan-400 font-bold tracking-wider flex items-center gap-1.5">
+                                              <span>📐</span> MATHEMATICAL FORMULA &amp; SUBSTITUTION:
+                                            </span>
+                                            <span className="text-[10px] font-mono text-amber-300 font-bold">
+                                              {b.length_mm > 0 ? `+${b.length_mm.toFixed(1)} mm` : `${b.length_mm.toFixed(1)} mm`}
+                                            </span>
+                                          </div>
+                                          <div className="font-mono text-xs text-amber-300 bg-slate-950/80 px-3 py-2 rounded-md border border-amber-500/30 select-all overflow-x-auto whitespace-pre-wrap">
+                                            {b.formula || `${b.label}: ${Math.abs(b.length_mm).toFixed(1)} mm`}
+                                          </div>
+                                        </div>
+
+                                        <div>
+                                          <div className="text-[10px] uppercase font-mono text-sky-400 font-bold tracking-wider mb-1 flex items-center gap-1.5">
+                                            <span>📖</span> GOVERNING CODE STANDARD &amp; ENGINEERING RATIONALE:
+                                          </div>
+                                          <div className="text-xs text-slate-300 leading-relaxed font-sans bg-slate-950/60 px-3 py-2 rounded-md border border-slate-800">
+                                            {b.explanation || (b.clause ? `Standard dimension provision per ${b.clause}.` : "Extracted directly from approved structural drawing sheet dimensions.")}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </Fragment>
+                            );
+                          })}
                         </tbody>
                         <tfoot className="bg-slate-900 border-t-2 border-cyan-400">
                           <tr>
@@ -2980,10 +3044,15 @@ export default function Home() {
 
                 {/* Arithmetic Breakdown Component Table */}
                 <div className="mb-6">
-                  <span className="text-xs font-mono text-cyan-300 font-bold uppercase tracking-wider block mb-2.5 flex items-center gap-2">
-                    <span className="inline-block w-2 h-2 rounded-full bg-cyan-400" />
-                    ARITHMETIC BREAKDOWN &amp; CODE PROVISIONS
-                  </span>
+                  <div className="flex flex-wrap items-center justify-between gap-1 mb-2.5">
+                    <span className="text-xs font-mono text-cyan-300 font-bold uppercase tracking-wider flex items-center gap-2">
+                      <span className="inline-block w-2 h-2 rounded-full bg-cyan-400" />
+                      ARITHMETIC BREAKDOWN &amp; CODE PROVISIONS
+                    </span>
+                    <span className="text-[10px] font-mono text-cyan-400/80">
+                      💡 Click any row to expand calculation
+                    </span>
+                  </div>
                   <div className="w-full overflow-x-auto rounded-xl border border-cyan-500/40 bg-slate-950/90 shadow-xl shadow-black/50">
                     <table className="w-full text-left font-mono text-xs border-collapse">
                       <colgroup>
@@ -3005,26 +3074,78 @@ export default function Home() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800/80">
-                        {activeResult.breakdown.map((row, idx) => (
-                          <tr
-                            key={`calc-row-${idx}`}
-                            className="hover:bg-cyan-950/25 transition-colors odd:bg-slate-950/60 even:bg-slate-900/40"
-                          >
-                            <td className="px-4 py-3 font-semibold text-slate-100 border-r border-slate-800/60">
-                              {row.label}
-                            </td>
-                            <td className="px-4 py-3 border-r border-slate-800/60">
-                              <span className="inline-flex items-center px-2 py-0.5 rounded bg-sky-950/80 border border-sky-500/40 text-sky-300 font-mono text-[11px]">
-                                {row.clause || "Drawing Detail"}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 text-right font-bold text-sm">
-                              <span className={row.length_mm < 0 ? "text-rose-400" : "text-emerald-400"}>
-                                {row.length_mm > 0 ? `+${row.length_mm.toFixed(1)}` : row.length_mm.toFixed(1)}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
+                        {activeResult.breakdown.map((row, idx) => {
+                          const isExpanded = expandedActiveRowIdx === idx;
+                          return (
+                            <Fragment key={`calc-row-${idx}`}>
+                              <tr
+                                onClick={() => setExpandedActiveRowIdx(isExpanded ? null : idx)}
+                                className={`cursor-pointer transition-colors ${
+                                  isExpanded ? "bg-cyan-950/50" : "hover:bg-cyan-950/30 odd:bg-slate-950/60 even:bg-slate-900/40"
+                                }`}
+                                title="Click to inspect exact mathematical formula and IS code clause"
+                              >
+                                <td className="px-4 py-3 font-semibold text-slate-100 border-r border-slate-800/60">
+                                  <div className="flex items-center gap-2">
+                                    <span className={`text-[10px] text-cyan-400 transition-transform duration-200 inline-block ${isExpanded ? "rotate-90 text-cyan-300" : ""}`}>
+                                      ▶
+                                    </span>
+                                    <span>{row.label}</span>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3 border-r border-slate-800/60">
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded bg-sky-950/80 border border-sky-500/40 text-sky-300 font-mono text-[11px]">
+                                    {row.clause || "Drawing Detail"}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 text-right font-bold text-sm">
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    <span className={row.length_mm < 0 ? "text-rose-400" : "text-emerald-400"}>
+                                      {row.length_mm > 0 ? `+${row.length_mm.toFixed(1)}` : row.length_mm.toFixed(1)}
+                                    </span>
+                                    <span className={`text-[10px] px-1 py-0.5 rounded font-mono border transition ${
+                                      isExpanded
+                                        ? "bg-cyan-500/20 text-cyan-300 border-cyan-400/50"
+                                        : "bg-cyan-950/40 text-cyan-400/70 border-cyan-500/20 hover:text-cyan-300"
+                                    }`}>
+                                      fx
+                                    </span>
+                                  </div>
+                                </td>
+                              </tr>
+                              {isExpanded && (
+                                <tr className="bg-slate-900/95 border-b border-cyan-500/30">
+                                  <td colSpan={3} className="p-4 bg-gradient-to-r from-cyan-950/40 via-slate-900/90 to-slate-950/95">
+                                    <div className="space-y-2.5 rounded-lg border border-cyan-500/30 bg-black/50 p-3.5 shadow-inner">
+                                      <div>
+                                        <div className="flex items-center justify-between mb-1">
+                                          <span className="text-[10px] uppercase font-mono text-cyan-400 font-bold tracking-wider flex items-center gap-1.5">
+                                            <span>📐</span> MATHEMATICAL FORMULA &amp; SUBSTITUTION:
+                                          </span>
+                                          <span className="text-[10px] font-mono text-amber-300 font-bold">
+                                            {row.length_mm > 0 ? `+${row.length_mm.toFixed(1)} mm` : `${row.length_mm.toFixed(1)} mm`}
+                                          </span>
+                                        </div>
+                                        <div className="font-mono text-xs text-amber-300 bg-slate-950/80 px-3 py-2 rounded-md border border-amber-500/30 select-all overflow-x-auto whitespace-pre-wrap">
+                                          {row.formula || `${row.label}: ${Math.abs(row.length_mm).toFixed(1)} mm`}
+                                        </div>
+                                      </div>
+
+                                      <div>
+                                        <div className="text-[10px] uppercase font-mono text-sky-400 font-bold tracking-wider mb-1 flex items-center gap-1.5">
+                                          <span>📖</span> GOVERNING CODE STANDARD &amp; ENGINEERING RATIONALE:
+                                        </div>
+                                        <div className="text-xs text-slate-300 leading-relaxed font-sans bg-slate-950/60 px-3 py-2 rounded-md border border-slate-800">
+                                          {row.explanation || (row.clause ? `Standard dimension provision per ${row.clause}.` : "Extracted directly from approved structural drawing sheet dimensions.")}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </Fragment>
+                          );
+                        })}
                       </tbody>
                       <tfoot className="bg-slate-900 border-t-2 border-cyan-400">
                         <tr>

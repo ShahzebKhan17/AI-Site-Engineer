@@ -36,6 +36,8 @@ class CalculationBreakdown(BaseModel):
     label: str
     length_mm: float
     clause: str | None = None
+    formula: str | None = None
+    explanation: str | None = None
 
 
 class BBSItem(BaseModel):
