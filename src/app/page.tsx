@@ -3,9 +3,22 @@
 import { ChangeEvent, Fragment, useEffect, useRef, useState } from "react";
 import { getSupabase } from "@/lib/supabaseClient";
 
-const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-// Auto-correct any underscore typo in Render hostname (Render wildcard SSL only covers hyphens)
-const API_BASE_URL = rawApiUrl.replace("ai_site_engineer.onrender.com", "ai-site-engineer.onrender.com");
+function getApiBaseUrl(): string {
+  const envUrl = process.env.NEXT_PUBLIC_API_URL;
+  // If running in browser on a deployed cloud host (e.g. *.vercel.app), never call localhost
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    const isLocal = host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0";
+    if (!isLocal) {
+      if (!envUrl || envUrl.includes("localhost") || envUrl.includes("127.0.0.1")) {
+        return "https://ai-site-engineer.onrender.com";
+      }
+    }
+  }
+  const raw = envUrl || (process.env.NODE_ENV === "production" ? "https://ai-site-engineer.onrender.com" : "http://localhost:8000");
+  return raw.replace("ai_site_engineer.onrender.com", "ai-site-engineer.onrender.com");
+}
+const API_BASE_URL = getApiBaseUrl();
 
 type DrawingItem = {
   name: string;
@@ -435,6 +448,7 @@ function StructuredAiAnswerView({ answer }: { answer: string }) {
 }
 
 export default function Home() {
+  const API_BASE_URL = getApiBaseUrl();
   const [drawings, setDrawings] = useState<DrawingItem[]>([]);
   const [query, setQuery] = useState("");
   const [projectName, setProjectName] = useState("Structural Project");
