@@ -40,6 +40,11 @@ type ExtractedMemberData = {
   bottom_landing_length_mm?: number | null;
   top_landing_length_mm?: number | null;
   dist_bar_spacing_mm?: number | null;
+  pile_diameter_mm?: number | null;
+  pile_length_m?: number | null;
+  embedment_into_cap_mm?: number | null;
+  spiral_bar_dia_mm?: number | null;
+  spiral_pitch_mm?: number | null;
   concrete_grade: string;
   steel_grade: string;
   reinforcement_summary: string;
@@ -1644,6 +1649,21 @@ export default function Home() {
                           dist_bar_spacing_mm: reviewMember.dist_bar_spacing_mm || reviewMember.dimensions?.dist_bar_spacing_mm || 200,
                           clear_cover_mm: reviewMember.clear_cover_mm ?? reviewMember.dimensions?.clear_cover_mm ?? 25,
                         });
+                      } else if (newType === "pile") {
+                        setReviewMember({
+                          ...reviewMember,
+                          member_type: newType,
+                          pile_diameter_mm: reviewMember.pile_diameter_mm || reviewMember.dimensions?.pile_diameter_mm || reviewMember.dimensions?.width_mm || 600,
+                          pile_length_m: reviewMember.pile_length_m || reviewMember.dimensions?.pile_length_m || ((reviewMember.dimensions?.length_mm || 12000) > 100 ? (reviewMember.dimensions?.length_mm || 12000) / 1000 : 12),
+                          embedment_into_cap_mm: reviewMember.embedment_into_cap_mm || reviewMember.dimensions?.embedment_into_cap_mm || 800,
+                          num_bars: reviewMember.num_bars || reviewMember.dimensions?.num_bars || 8,
+                          main_bar_diameter_mm: reviewMember.main_bar_diameter_mm || 16,
+                          secondary_bar_diameter_mm: reviewMember.secondary_bar_diameter_mm || 8,
+                          spiral_bar_dia_mm: reviewMember.spiral_bar_dia_mm || reviewMember.secondary_bar_diameter_mm || 8,
+                          spiral_pitch_mm: reviewMember.spiral_pitch_mm || reviewMember.spacing_mm || 150,
+                          spacing_mm: reviewMember.spacing_mm || 150,
+                          clear_cover_mm: reviewMember.clear_cover_mm || reviewMember.dimensions?.clear_cover_mm || 50,
+                        });
                       } else {
                         setReviewMember({ ...reviewMember, member_type: newType });
                       }
@@ -1886,6 +1906,100 @@ export default function Home() {
                       </div>
                     )}
                   </div>
+                </div>
+              ) : reviewMember.member_type.toLowerCase() === "pile" ? (
+                <div className="bg-slate-950/70 p-3 rounded-lg border border-slate-800 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-amber-400 block uppercase tracking-wider">
+                      Bored / Driven RC Pile Geometry (IS 2911 &amp; IS 456)
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      Circular Shaft Foundation
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 text-xs">
+                    <div>
+                      <label className="text-slate-400 block mb-1 text-[11px]">Pile Diameter (mm)</label>
+                      <input
+                        type="number"
+                        value={reviewMember.pile_diameter_mm ?? reviewMember.dimensions?.pile_diameter_mm ?? reviewMember.dimensions?.width_mm ?? 600}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value) || 0;
+                          setReviewMember({
+                            ...reviewMember,
+                            pile_diameter_mm: val,
+                            dimensions: { ...reviewMember.dimensions, pile_diameter_mm: val, width_mm: val, diameter_mm: val },
+                          });
+                        }}
+                        className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-bold"
+                        placeholder="e.g. 600"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-slate-400 block mb-1 text-[11px]">Pile Length (mm)</label>
+                      <input
+                        type="number"
+                        value={
+                          reviewMember.pile_length_m && reviewMember.pile_length_m > 100
+                            ? reviewMember.pile_length_m
+                            : reviewMember.pile_length_m
+                            ? reviewMember.pile_length_m * 1000
+                            : reviewMember.dimensions?.length_mm || 12000
+                        }
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value) || 0;
+                          const inMeters = val > 100 ? val / 1000 : val;
+                          setReviewMember({
+                            ...reviewMember,
+                            pile_length_m: inMeters,
+                            dimensions: { ...reviewMember.dimensions, pile_length_m: inMeters, length_mm: val },
+                          });
+                        }}
+                        className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-bold"
+                        placeholder="e.g. 12000"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-slate-400 block mb-1 text-[11px]">Cap Embedment (mm)</label>
+                      <input
+                        type="number"
+                        value={reviewMember.embedment_into_cap_mm ?? reviewMember.dimensions?.embedment_into_cap_mm ?? 800}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value) || 0;
+                          setReviewMember({
+                            ...reviewMember,
+                            embedment_into_cap_mm: val,
+                            dimensions: { ...reviewMember.dimensions, embedment_into_cap_mm: val },
+                          });
+                        }}
+                        className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-bold"
+                        placeholder="e.g. 800"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Computed Pile Concrete & Geometry Preview */}
+                  {(() => {
+                    const pDia = reviewMember.pile_diameter_mm ?? reviewMember.dimensions?.pile_diameter_mm ?? reviewMember.dimensions?.width_mm ?? 600;
+                    const pLenM = (reviewMember.pile_length_m && reviewMember.pile_length_m > 100) ? reviewMember.pile_length_m / 1000.0 : (reviewMember.pile_length_m || ((reviewMember.dimensions?.length_mm || 12000) / 1000.0));
+                    const rM = (pDia / 1000.0) / 2.0;
+                    const volM3 = Math.PI * (rM * rM) * pLenM;
+                    const perimeterMm = Math.PI * pDia;
+
+                    return (
+                      <div className="bg-slate-900/80 p-2.5 rounded border border-slate-800 text-[11px] space-y-1.5 font-mono">
+                        <div className="flex items-center justify-between text-slate-300">
+                          <span>Shaft Volume: <strong className="text-amber-300">{volM3.toFixed(3)} m³</strong> (π × r² × L)</span>
+                          <span>Shaft Depth: <strong className="text-cyan-300">{pLenM.toFixed(2)} m</strong> ({(pLenM * 1000).toFixed(0)} mm)</span>
+                        </div>
+                        <div className="flex items-center justify-between border-t border-slate-800/80 pt-1.5 text-slate-300">
+                          <span>Perimeter: <strong className="text-emerald-400">{perimeterMm.toFixed(0)} mm</strong> (Ø {pDia}mm)</span>
+                          <span className="text-emerald-400 font-bold">IS 2911 Cast-in-Situ ✓</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               ) : (
                 <div className="bg-slate-950/70 p-3 rounded-lg border border-slate-800 space-y-2">
@@ -2240,6 +2354,150 @@ export default function Home() {
                             placeholder="e.g. 25"
                           />
                         </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : reviewMember.member_type.toLowerCase() === "pile" ? (
+                  <div className="space-y-3">
+                    {/* Vertical Cage Longitudinal Bars */}
+                    <div className="bg-slate-900/60 p-2.5 rounded border border-slate-800">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[10px] text-cyan-300 font-bold uppercase">
+                          Vertical Longitudinal Cage Rebar (IS 2911 Cl. 6.11)
+                        </span>
+                        <span className="text-[10px] text-emerald-400 font-mono font-bold bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-800/50">
+                          {reviewMember.num_bars || reviewMember.dimensions?.num_bars || 8}-T{reviewMember.main_bar_diameter_mm || 16} Cage
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-slate-400 block mb-1 text-[10px]">No. of Vertical Bars</label>
+                          <input
+                            type="number"
+                            value={reviewMember.num_bars || reviewMember.dimensions?.num_bars || 8}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value) || 0;
+                              setReviewMember({
+                                ...reviewMember,
+                                num_bars: val,
+                                dimensions: { ...reviewMember.dimensions, num_bars: val },
+                              });
+                            }}
+                            className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-bold text-xs"
+                            placeholder="e.g. 8"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-slate-400 block mb-1 text-[10px]">Main Bar Dia (mm)</label>
+                          <input
+                            type="number"
+                            value={reviewMember.main_bar_diameter_mm || 16}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              setReviewMember({
+                                ...reviewMember,
+                                main_bar_diameter_mm: val,
+                                dimensions: { ...reviewMember.dimensions, main_bar_diameter_mm: val },
+                              });
+                            }}
+                            className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-bold text-xs"
+                            placeholder="e.g. 16"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Helical / Spiral Lateral Ties */}
+                    <div className="bg-slate-900/60 p-2.5 rounded border border-slate-800">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[10px] text-cyan-300 font-bold uppercase">
+                          Helical Spiral Lateral Ties (SP 34 Cl. 7.3)
+                        </span>
+                        {(() => {
+                          const pDia = reviewMember.pile_diameter_mm ?? reviewMember.dimensions?.pile_diameter_mm ?? 600;
+                          const cov = reviewMember.clear_cover_mm ?? reviewMember.dimensions?.clear_cover_mm ?? 50;
+                          const sDia = reviewMember.spiral_bar_dia_mm || reviewMember.secondary_bar_diameter_mm || 8;
+                          const pitch = reviewMember.spiral_pitch_mm || reviewMember.spacing_mm || 150;
+                          const dCage = pDia - 2 * cov - sDia;
+                          const lenTurn = Math.sqrt((Math.PI * dCage) ** 2 + pitch ** 2);
+                          return (
+                            <span className="text-[10px] text-cyan-400 font-mono">
+                              Cage Core: Ø{dCage.toFixed(0)}mm · Turn: {lenTurn.toFixed(0)}mm
+                            </span>
+                          );
+                        })()}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-slate-400 block mb-1 text-[10px]">Spiral Bar Dia (mm)</label>
+                          <input
+                            type="number"
+                            value={reviewMember.spiral_bar_dia_mm ?? reviewMember.secondary_bar_diameter_mm ?? 8}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              setReviewMember({
+                                ...reviewMember,
+                                spiral_bar_dia_mm: val,
+                                secondary_bar_diameter_mm: val,
+                                dimensions: { ...reviewMember.dimensions, spiral_bar_dia_mm: val, secondary_bar_diameter_mm: val },
+                              });
+                            }}
+                            className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-bold text-xs"
+                            placeholder="e.g. 8"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-slate-400 block mb-1 text-[10px]">Spiral Pitch c/c (mm)</label>
+                          <input
+                            type="number"
+                            value={reviewMember.spiral_pitch_mm ?? reviewMember.spacing_mm ?? 150}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              setReviewMember({
+                                ...reviewMember,
+                                spiral_pitch_mm: val,
+                                spacing_mm: val,
+                                dimensions: { ...reviewMember.dimensions, spiral_pitch_mm: val, spacing_mm: val },
+                              });
+                            }}
+                            className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs"
+                            placeholder="e.g. 150"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Master Stiffener Rings & Clear Cover */}
+                    <div className="bg-slate-900/60 p-2.5 rounded border border-slate-800">
+                      <div className="grid grid-cols-2 gap-2 items-center">
+                        <div>
+                          <span className="text-[10px] text-cyan-300 font-bold block uppercase">
+                            Nominal Clear Cover
+                          </span>
+                          <span className="text-[9px] text-slate-400 block">
+                            IS 2911 Cl. 6.11 (min 50 mm)
+                          </span>
+                        </div>
+                        <div>
+                          <input
+                            type="number"
+                            value={reviewMember.clear_cover_mm ?? reviewMember.dimensions?.clear_cover_mm ?? 50}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              setReviewMember({
+                                ...reviewMember,
+                                clear_cover_mm: val,
+                                dimensions: { ...reviewMember.dimensions, clear_cover_mm: val },
+                              });
+                            }}
+                            className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs"
+                            placeholder="e.g. 50"
+                          />
+                        </div>
+                      </div>
+                      <div className="mt-2 pt-1.5 border-t border-slate-800 text-[10px] text-slate-400 flex items-center justify-between">
+                        <span>Master Stiffeners: <strong>T16 @ 2.0 m spacing</strong></span>
+                        <span className="text-emerald-400">IS 2911 Part 1 Rigidity Standard</span>
                       </div>
                     </div>
                   </div>

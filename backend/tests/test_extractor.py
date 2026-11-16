@@ -195,3 +195,34 @@ def test_regex_extracts_column_dual_zone_ties() -> None:
     calc = calculate_longitudinal_bar(output.column_request)
     assert calc.num_ties == 22
 
+
+def test_regex_extracts_pile_pl01() -> None:
+    text = (
+        "4. BORED CAST-IN-SITU PILE — Test Case PL-01\n"
+        "A simplified circular pile with a reinforcement cage.\n"
+        "Input item          Test value\n"
+        "Pile diameter       600 mm\n"
+        "Pile length         12,000 mm\n"
+        "Longitudinal reinforcement  8 bars × 16 mm diameter\n"
+        "Assumed longitudinal bar length for test  11,500 mm each\n"
+        "Helical reinforcement  8 mm diameter @ 150 mm pitch\n"
+        "Assumed helix centreline diameter  500 mm\n"
+        "Concrete volume basis  Full cylindrical shaft; no overbreak or wastage\n"
+    )
+    output = regex_extract_drawing_dimensions(
+        text=text,
+        target_member_id="PL-01",
+        citations=["drawing:PL-01.png"],
+        pages=[1],
+    )
+    assert output.member_id == "PL-01"
+    assert output.member_type == "pile"
+    assert output.pile_request is not None
+    assert output.pile_request.pile_diameter_mm == 600.0
+    assert output.pile_request.pile_length_m == 12.0
+    assert output.pile_request.main_bar_dia_mm == 16.0
+    assert output.pile_request.num_main_bars == 8
+    assert output.pile_request.spiral_bar_dia_mm == 8.0
+    assert output.pile_request.spiral_pitch_mm == 150.0
+    assert output.pile_request.clear_cover_mm == 50.0
+

@@ -134,6 +134,12 @@ class ParameterCalculationRequest(BaseModel):
     bottom_landing_length_mm: float | None = None
     top_landing_length_mm: float | None = None
     dist_bar_spacing_mm: float | None = None
+    # Pile-specific fields:
+    pile_diameter_mm: float | None = None
+    pile_length_m: float | None = None
+    embedment_into_cap_mm: float | None = None
+    spiral_bar_dia_mm: float | None = None
+    spiral_pitch_mm: float | None = None
     concrete_grade: str = "M25"
     steel_grade: str = "FE500"
     citations: list[str] = Field(default_factory=list)
@@ -247,16 +253,33 @@ def calculate_from_reviewed_parameters(request: ParameterCalculationRequest) -> 
         return calculate_slab_bbs(slab_req)
 
     if mtype == "pile":
+        p_dia = float(request.pile_diameter_mm or dims.get("pile_diameter_mm") or dims.get("diameter_mm") or dims.get("width_mm") or 600.0)
+        p_len_val = request.pile_length_m or dims.get("pile_length_m")
+        if p_len_val is None:
+            raw_len = float(dims.get("length_mm") or 12000.0)
+            p_len_m = raw_len / 1000.0 if raw_len > 100.0 else raw_len
+        else:
+            p_len_m = float(p_len_val)
+            if p_len_m > 100.0:  # User entered in mm (e.g. 12000)
+                p_len_m = p_len_m / 1000.0
+
+        p_embed = float(request.embedment_into_cap_mm or dims.get("embedment_into_cap_mm") or 800.0)
+        p_main_dia = float(request.main_bar_diameter_mm or dims.get("main_bar_dia_mm") or 16.0)
+        p_num_bars = int(request.num_bars or dims.get("num_bars") or dims.get("bars_count") or 8)
+        p_spiral_dia = float(request.spiral_bar_dia_mm or request.secondary_bar_diameter_mm or dims.get("spiral_bar_dia_mm") or dims.get("secondary_bar_diameter_mm") or 8.0)
+        p_spiral_pitch = float(request.spiral_pitch_mm or request.spacing_mm or dims.get("spiral_pitch_mm") or dims.get("spacing_mm") or 150.0)
+        p_cover = float(request.clear_cover_mm or dims.get("clear_cover_mm") or 50.0)
+
         pile_req = PileScheduleRequest(
             member_id=request.member_id,
-            pile_diameter_mm=float(dims.get("pile_diameter_mm") or dims.get("width_mm") or 600.0),
-            pile_length_m=float(dims.get("pile_length_m") or ((dims.get("length_mm") or 12000.0) / 1000.0)),
-            embedment_into_cap_mm=float(dims.get("embedment_into_cap_mm") or 800.0),
-            main_bar_dia_mm=request.main_bar_diameter_mm,
-            num_main_bars=int(request.num_bars or dims.get("num_bars") or dims.get("bars_count") or 8),
-            spiral_bar_dia_mm=request.secondary_bar_diameter_mm or 8.0,
-            spiral_pitch_mm=request.spacing_mm or 150.0,
-            clear_cover_mm=float(dims.get("clear_cover_mm") or 50.0),
+            pile_diameter_mm=p_dia,
+            pile_length_m=p_len_m,
+            embedment_into_cap_mm=p_embed,
+            main_bar_dia_mm=p_main_dia,
+            num_main_bars=p_num_bars,
+            spiral_bar_dia_mm=p_spiral_dia,
+            spiral_pitch_mm=p_spiral_pitch,
+            clear_cover_mm=max(40.0, p_cover),
             concrete_grade=request.concrete_grade,
             steel_grade=request.steel_grade,
             source_references=citations,

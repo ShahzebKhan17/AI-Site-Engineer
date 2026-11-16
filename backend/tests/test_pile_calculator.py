@@ -36,3 +36,44 @@ def test_pile_bbs_calculation() -> None:
     assert vert_item.cutting_length_mm == 12950.0
     assert vert_item.num_bars == 8
 
+
+def test_pile_pl01_bored_cast_in_situ() -> None:
+    """Test Case PL-01: Bored Cast-In-Situ Pile (600 mm dia x 12,000 mm length)."""
+    req = PileScheduleRequest(
+        member_id="PL-01",
+        pile_diameter_mm=600.0,
+        pile_length_m=12.0,
+        embedment_into_cap_mm=800.0,
+        main_bar_dia_mm=16.0,
+        num_main_bars=8,
+        spiral_bar_dia_mm=8.0,
+        spiral_pitch_mm=150.0,
+        stiffener_bar_dia_mm=16.0,
+        stiffener_spacing_m=2.0,
+        clear_cover_mm=50.0,
+        concrete_grade="M25",
+        steel_grade="FE500",
+        source_references=["drawing:test_case_pl01.png"],
+    )
+    result = calculate_pile_bbs(req)
+
+    assert result.member_id == "PL-01"
+    assert result.member_type == "PILE"
+    assert result.concrete_volume_m3 == pytest.approx(3.393, rel=1e-2)
+
+    # 1. Main vertical cage bars (8 Nos, T16)
+    vert_item = next(it for it in result.items if "Main Vertical" in it.bar_mark)
+    assert vert_item.num_bars == 8
+    assert vert_item.bar_diameter_mm == 16.0
+    # Embedment = max(800, 50 * 16 = 800) = 800 mm. Length = 12000 + 800 - 50 = 12750 mm
+    assert vert_item.cutting_length_mm == 12750.0
+    assert len(vert_item.breakdown) >= 3
+    assert all(b.formula for b in vert_item.breakdown)
+
+    # 2. Helical spiral ties
+    spiral_item = next(it for it in result.items if "Helical Spiral" in it.bar_mark)
+    assert spiral_item.bar_diameter_mm == 8.0
+    assert spiral_item.spacing_mm == 150.0
+    assert len(spiral_item.breakdown) >= 2
+    assert all(b.formula for b in spiral_item.breakdown)
+

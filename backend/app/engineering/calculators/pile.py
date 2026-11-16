@@ -87,9 +87,27 @@ def calculate_pile_bbs(request: PileScheduleRequest) -> BBSCalculationResult:
         total_weight_kg=total_vert_wt,
         shape_description="Straight vertical longitudinal bar projecting into pile cap",
         breakdown=[
-            CalculationBreakdown(label="Pile shaft depth", length_mm=l_pile_mm, clause="Drawing elevation"),
-            CalculationBreakdown(label="Pile cap embedment (Ld)", length_mm=embedment, clause="IS 2911 Cl. 6.11 / IS 456"),
-            CalculationBreakdown(label="Bottom end clear cover", length_mm=-cover, clause="IS 2911 Part 1"),
+            CalculationBreakdown(
+                label="Pile shaft depth",
+                length_mm=l_pile_mm,
+                clause="Drawing elevation",
+                formula=f"L_shaft = {l_pile_mm:.1f} mm",
+                explanation=f"Cylindrical shaft depth below cut-off level ({request.pile_length_m:.2f} m)",
+            ),
+            CalculationBreakdown(
+                label="Pile cap embedment (Ld)",
+                length_mm=embedment,
+                clause="IS 2911 Cl. 6.11 / IS 456",
+                formula=f"max(Ld, 50d) = {embedment:.1f} mm",
+                explanation=f"Dowel projection into pile cap (min 50 × {main_dia:.0f}mm = {50*main_dia:.0f}mm or tension Ld {min_embedment:.1f}mm)",
+            ),
+            CalculationBreakdown(
+                label="Bottom end clear cover",
+                length_mm=-cover,
+                clause="IS 2911 Part 1 Cl. 6.11",
+                formula=f"-Cover = -{cover:.1f} mm",
+                explanation=f"Nominal cover to bottom of vertical cage ({cover:.1f} mm)",
+            ),
         ],
     ))
 
@@ -118,8 +136,20 @@ def calculate_pile_bbs(request: PileScheduleRequest) -> BBSCalculationResult:
         total_weight_kg=total_spiral_wt,
         shape_description=f"Continuous helical spiral (pitch {pitch:.0f} mm) around cage core",
         breakdown=[
-            CalculationBreakdown(label=f"Continuous helical pitch length ({turns} turns)", length_mm=turns * length_per_turn, clause="SP 34 Cl. 7.3"),
-            CalculationBreakdown(label="End anchorage full turns (4 x pi * D_cage)", length_mm=4.0 * math.pi * d_cage, clause="IS 2911 Cl. 6.11"),
+            CalculationBreakdown(
+                label=f"Continuous helical pitch length ({turns} turns)",
+                length_mm=turns * length_per_turn,
+                clause="SP 34 Cl. 7.3",
+                formula=f"{turns} turns × √((π × {d_cage:.1f})² + {pitch:.0f}²) = {turns * length_per_turn:.1f} mm",
+                explanation=f"Helical link length per turn = {length_per_turn:.1f} mm over {turns} pitch intervals",
+            ),
+            CalculationBreakdown(
+                label="End anchorage full turns (4 x pi * D_cage)",
+                length_mm=4.0 * math.pi * d_cage,
+                clause="IS 2911 Cl. 6.11",
+                formula=f"4 × π × {d_cage:.1f} = {4.0 * math.pi * d_cage:.1f} mm",
+                explanation="2 extra full turns at top and 2 at bottom for spiral anchorage",
+            ),
         ],
     ))
 
@@ -147,8 +177,20 @@ def calculate_pile_bbs(request: PileScheduleRequest) -> BBSCalculationResult:
         total_weight_kg=total_stiff_wt,
         shape_description="Circular welded internal stiffener ring maintaining cage rigidity",
         breakdown=[
-            CalculationBreakdown(label="Circumferential loop (pi * D_cage)", length_mm=math.pi * d_cage, clause="IS 2911 Part 1"),
-            CalculationBreakdown(label="Welded/tied lap splice (24d)", length_mm=stiff_lap, clause="SP 34 Cl. 3.4"),
+            CalculationBreakdown(
+                label="Circumferential loop (pi * D_cage)",
+                length_mm=math.pi * d_cage,
+                clause="IS 2911 Part 1",
+                formula=f"π × {d_cage:.1f} = {math.pi * d_cage:.1f} mm",
+                explanation=f"Master ring circumference for cage diameter {d_cage:.1f} mm",
+            ),
+            CalculationBreakdown(
+                label="Welded/tied lap splice (24d)",
+                length_mm=stiff_lap,
+                clause="SP 34 Cl. 3.4",
+                formula=f"24 × {stiff_dia:.0f} = {stiff_lap:.1f} mm",
+                explanation=f"Standard 24d ring splice for internal stiffener bar",
+            ),
         ],
     ))
 

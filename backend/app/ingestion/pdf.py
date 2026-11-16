@@ -73,7 +73,7 @@ def detect_entity_in_text(text: str) -> tuple[str | None, str | None]:
         f_code = footing_match.group(1) or footing_match.group(2) or "FOOTING"
         return f_code.upper().replace(" ", ""), "footing"
 
-    pile_match = re.search(r"\b(?:pile\s*(?:no\.?\s*)?)?(P[-\s]?\d+)\b", text, re.IGNORECASE)
+    pile_match = re.search(r"\b(?:pile\s*(?:no\.?\s*)?)?(PL[-\s]?\d+|P[-\s]?\d+)\b", text, re.IGNORECASE)
     if pile_match:
         return pile_match.group(1).upper().replace(" ", ""), "pile"
 

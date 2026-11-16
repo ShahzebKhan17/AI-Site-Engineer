@@ -27,6 +27,15 @@ GEMINI_MODELS = ["gemini-2.5-flash", "gemini-1.5-flash"]
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 
 
+# Load local environment once on module import if present
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+    load_dotenv("backend/.env")
+except Exception:
+    pass
+
+
 def get_gemini_api_key() -> str | None:
     """Retrieve Gemini API key from environment variables."""
     return os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
@@ -41,17 +50,18 @@ GEMINI_EXTRACTION_PROMPT = """You are an expert Civil & Structural Engineer AI s
 
 Analyze the attached structural drawing/document carefully and extract:
 1. All text chunks for documentation and semantic search retrieval.
-2. All identified structural members (e.g. Columns like C1, C12; Beams like B1, B4; Footings/Rafts like F1, RF1, RAFT; Slabs like S1, S2; Piles like P1; Pile Caps like PC1; Piers like PR1; Staircases like ST1; Retaining Walls like RW1).
+2. All identified structural members (e.g. Columns like C1, C12; Beams like B1, B4; Footings/Rafts like F1, RF1, RAFT; Slabs like S1, S2; Piles like PL-01, P1; Pile Caps like PC1; Piers like PR1; Staircases like ST1, ST-01; Retaining Walls like RW1).
 3. For each member, extract the exact physical dimensions and reinforcement schedule:
-   - member_id: e.g. "C12", "B4", "RAFT", "F1", "S1"
+   - member_id: e.g. "PL-01", "C12", "B4", "RAFT", "F1", "S1"
    - member_type: one of ["column", "beam", "footing", "slab", "pile", "pile_cap", "pier", "staircase", "retaining_wall"]
    - num_bars: total count of primary longitudinal/mesh bars (e.g. 8 for "8 bars Ø16 mm", 4 for "4-T16")
-   - dimensions: numeric values in millimeters (mm) where visible (e.g. width_mm, depth_mm, length_mm, storey_height_mm, thickness_mm)
+   - dimensions: numeric values in millimeters (mm) where visible (e.g. width_mm, depth_mm, length_mm, storey_height_mm, thickness_mm, pile_diameter_mm, pile_length_m)
    - footing_embedment_mm: embedment into footing or foundation in mm ONLY if explicitly shown or stated, else 0.0
    - bend_allowance_mm: bend or hook allowance in mm if specified (e.g. 20d or explicit mm), or 300.0 if not specified
    - tie_spacing_end_mm: tie / stirrup spacing in confining / end zones in mm if specified (e.g. 100)
    - end_zone_length_mm: length of confining / end zone at each end in mm if specified (e.g. 300)
    - tie_spacing_mid_mm: tie / stirrup spacing in middle zone in mm if specified (e.g. 150)
+   - For PILE (e.g. PL-01, P1, P-01): extract pile_diameter_mm (e.g. 600), pile_length_m (e.g. 12.0 from 12,000 mm or 12m), embedment_into_cap_mm (e.g. 800), num_bars (e.g. 8), main_bar_diameter_mm (e.g. 16), secondary_bar_diameter_mm (spiral bar dia e.g. 8), spacing_mm (spiral pitch e.g. 150), clear_cover_mm (50.0 per IS 2911).
    - For STAIRCASE (e.g. ST-01, ST1): extract flight_width_mm, waist_slab_thickness_mm, riser_mm, tread_mm, num_risers, num_treads, has_landings (false if excluded/none, true if present), bottom_landing_length_mm (0 if excluded), top_landing_length_mm (0 if excluded), main_bar_diameter_mm, spacing_mm, secondary_bar_diameter_mm, dist_bar_spacing_mm, clear_cover_mm
    - main_bar_diameter_mm: primary longitudinal/mesh rebar diameter (e.g. 16, 20, 25, 32)
    - secondary_bar_diameter_mm: secondary/stirrup/tie/distribution rebar diameter (e.g. 8, 10)
@@ -354,6 +364,29 @@ def _parse_gemini_json_response(raw_text: str, file_name: str) -> ExtractionResu
             if dist_sp_val is not None:
                 dims["dist_bar_spacing_mm"] = float(dist_sp_val)
 
+        # Pile specific parameter inference
+        p_dia_val = m.get("pile_diameter_mm") or dims.get("pile_diameter_mm") or dims.get("diameter_mm") or (dims.get("width_mm") if mtype == "pile" else None)
+        p_len_m_val = m.get("pile_length_m") or dims.get("pile_length_m") or (dims.get("length_mm", 0) / 1000.0 if dims.get("length_mm", 0) > 100 else dims.get("length_mm"))
+        p_embed_val = m.get("embedment_into_cap_mm") or dims.get("embedment_into_cap_mm") or 800.0
+        p_spiral_dia = m.get("spiral_bar_dia_mm") or dims.get("spiral_bar_dia_mm") or sec_dia or 8.0
+        p_spiral_pitch = m.get("spiral_pitch_mm") or dims.get("spiral_pitch_mm") or spacing or 150.0
+
+        if mtype == "pile":
+            if p_dia_val is not None:
+                dims["pile_diameter_mm"] = float(p_dia_val)
+                dims["diameter_mm"] = float(p_dia_val)
+                dims["width_mm"] = float(p_dia_val)
+            if p_len_m_val is not None:
+                dims["pile_length_m"] = float(p_len_m_val)
+                dims["length_mm"] = float(p_len_m_val) * 1000.0
+            if p_embed_val is not None:
+                dims["embedment_into_cap_mm"] = float(p_embed_val)
+            if p_spiral_dia is not None:
+                dims["spiral_bar_dia_mm"] = float(p_spiral_dia)
+            if p_spiral_pitch is not None:
+                dims["spiral_pitch_mm"] = float(p_spiral_pitch)
+                dims["spacing_mm"] = float(p_spiral_pitch)
+
         members.append(
             ExtractedMember(
                 member_id=mid,
@@ -380,6 +413,11 @@ def _parse_gemini_json_response(raw_text: str, file_name: str) -> ExtractionResu
                 bottom_landing_length_mm=float(bot_land_val) if bot_land_val is not None else None,
                 top_landing_length_mm=float(top_land_val) if top_land_val is not None else None,
                 dist_bar_spacing_mm=float(dist_sp_val) if dist_sp_val is not None else None,
+                pile_diameter_mm=float(p_dia_val) if p_dia_val is not None else None,
+                pile_length_m=float(p_len_m_val) if p_len_m_val is not None else None,
+                embedment_into_cap_mm=float(p_embed_val) if p_embed_val is not None else None,
+                spiral_bar_dia_mm=float(p_spiral_dia) if p_spiral_dia is not None else None,
+                spiral_pitch_mm=float(p_spiral_pitch) if p_spiral_pitch is not None else None,
                 concrete_grade=str(m.get("concrete_grade", "M25")).upper(),
                 steel_grade=str(m.get("steel_grade", "FE500")).upper(),
                 reinforcement_summary=reinf_str,

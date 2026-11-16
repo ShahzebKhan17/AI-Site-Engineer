@@ -36,6 +36,11 @@ class ExtractedMember(BaseModel):
     bottom_landing_length_mm: float | None = None
     top_landing_length_mm: float | None = None
     dist_bar_spacing_mm: float | None = None
+    pile_diameter_mm: float | None = None
+    pile_length_m: float | None = None
+    embedment_into_cap_mm: float | None = None
+    spiral_bar_dia_mm: float | None = None
+    spiral_pitch_mm: float | None = None
     concrete_grade: str = "M25"
     steel_grade: str = "FE500"
     reinforcement_summary: str = ""

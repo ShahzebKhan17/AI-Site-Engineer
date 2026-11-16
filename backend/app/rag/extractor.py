@@ -261,14 +261,28 @@ def regex_extract_drawing_dimensions(
             )
 
     elif member_type == "pile":
-        dia_match = re.search(r"(?:shaft\s*)?diameter\s*(?:is|=|:)?\s*(\d{3,4})\s*mm", text, re.IGNORECASE)
-        len_match = re.search(r"(?:depth|length)\s*(?:is|=|:)?\s*(\d+(?:\.\d+)?)\s*m\b", text, re.IGNORECASE)
-        vert_rebar_match = re.search(r"(\d+)[- ]?(?:Y|T|TOR|#|dia|Ø)?\s*(8|10|12|16|20|25|28|32)\b", text, re.IGNORECASE)
+        dia_match = re.search(r"(?:pile\s*|shaft\s*)?diameter\s*(?:is|=|:)?\s*(\d{3,4})\s*mm", text, re.IGNORECASE)
+        len_mm_match = re.search(r"(?:pile\s*)?(?:depth|length)\s*(?:is|=|:)?\s*(\d{1,2}(?:,\d{3})+|\d{4,6})\s*mm", text, re.IGNORECASE)
+        if len_mm_match:
+            p_len = float(len_mm_match.group(1).replace(",", "")) / 1000.0
+        else:
+            len_m_match = re.search(r"(?:pile\s*)?(?:depth|length)\s*(?:is|=|:)?\s*(\d+(?:\.\d+)?)\s*m\b", text, re.IGNORECASE)
+            p_len = float(len_m_match.group(1)) if len_m_match else None
+
+        vert_rebar_match = re.search(
+            r"(\d+)\s*bars?\s*[x×*]\s*(?:Y|T|TOR|#|dia|Ø)?\s*(\d+)\s*(?:mm)?|"
+            r"(\d+)\s*[-]?\s*(?:Y|T|TOR|#|dia|Ø)\s*(\d+)\b|"
+            r"(\d+)\s*bars?\s*(?:of|dia)?\s*(?:Y|T|TOR|#|dia|Ø)?\s*(\d+)\s*mm",
+            text,
+            re.IGNORECASE,
+        )
+        if vert_rebar_match:
+            num_vert = int(vert_rebar_match.group(1) or vert_rebar_match.group(3) or vert_rebar_match.group(5))
+            bar_dia = float(vert_rebar_match.group(2) or vert_rebar_match.group(4) or vert_rebar_match.group(6))
+        else:
+            num_vert, bar_dia = None, None
 
         p_dia = float(dia_match.group(1)) if dia_match else None
-        p_len = float(len_match.group(1)) if len_match else None
-        num_vert = int(vert_rebar_match.group(1)) if vert_rebar_match else None
-        bar_dia = float(vert_rebar_match.group(2)) if vert_rebar_match else None
 
         if not p_dia:
             missing.append("pile_diameter_mm")
@@ -280,9 +294,18 @@ def regex_extract_drawing_dimensions(
         embed_match = re.search(r"(?:embedment|anchorage)\s*(?:is|=|:)?\s*(\d{3,4})\s*mm", text, re.IGNORECASE)
         embed_val = float(embed_match.group(1)) if embed_match else 800.0
 
-        spiral_match = re.search(r"(?:spiral|helical)\s*(\d+)\s*mm\s*@\s*(\d+)\s*mm", text, re.IGNORECASE)
+        spiral_match = re.search(
+            r"(?:spiral|helical)(?:\s*reinforcement|\s*ties?|\s*links?|\s*steel)?\s*[:=]?\s*"
+            r"(?:Y|T|TOR|#|dia|Ø)?\s*(\d+)\s*(?:mm)?\s*(?:diameter|dia)?\s*"
+            r"(?:@|at)\s*(\d+)\s*(?:mm)?\s*(?:pitch|c/c)?",
+            text,
+            re.IGNORECASE,
+        )
         spiral_dia = float(spiral_match.group(1)) if spiral_match else 8.0
         spiral_pitch = float(spiral_match.group(2)) if spiral_match else 150.0
+
+        helix_match = re.search(r"(?:helix|cage)\s*(?:centreline|centerline)?\s*diameter\s*(?:is|=|:)?\s*(\d{3,4})\s*mm", text, re.IGNORECASE)
+        clear_cov = ((p_dia - float(helix_match.group(1))) / 2.0) if (helix_match and p_dia) else 50.0
 
         if p_dia and p_len and bar_dia:
             pile_req = PileScheduleRequest(
@@ -296,7 +319,7 @@ def regex_extract_drawing_dimensions(
                 spiral_pitch_mm=spiral_pitch,
                 stiffener_bar_dia_mm=16.0,
                 stiffener_spacing_m=2.0,
-                clear_cover_mm=50.0,
+                clear_cover_mm=max(40.0, clear_cov),
                 concrete_grade=concrete_grade,
                 steel_grade=steel_grade,
                 source_references=citations_list,
